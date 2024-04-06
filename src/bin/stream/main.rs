@@ -72,6 +72,10 @@ fn load_whisper_model_file<B: Backend>(
 use std::{env, fs, process};
 
 fn main() {
+
+
+
+    //COMMAND LINE 
     cfg_if::cfg_if! {
         if #[cfg(feature = "wgpu-backend")] {
             type Backend = WgpuBackend<AutoGraphicsApi, f32, i32>;
@@ -106,15 +110,11 @@ fn main() {
 
     let model_name = &args[1];
 
-    println!("Loading waveform...");
-    let (waveform, sample_rate) = match load_audio_waveform::<Backend>(wav_file) {
-        Ok((w, sr)) => (w, sr),
-        Err(e) => {
-            eprintln!("Failed to load audio file: {}", e);
-            process::exit(1);
-        }
-    };
 
+
+
+
+    //LOAD THE MODEL
     let bpe = match Gpt2Tokenizer::new() {
         Ok(bpe) => bpe,
         Err(e) => {
@@ -130,6 +130,7 @@ fn main() {
             process::exit(1);
         }
     };
+    println!("{:?}", &whisper_config);
 
     println!("Loading model...");
     let whisper: Whisper<Backend> = match load_whisper_model_file(&whisper_config, model_name) {
@@ -142,6 +143,31 @@ fn main() {
 
     let whisper = whisper.to_device(&device);
 
+
+
+
+    //START AUDIO SERVER
+
+
+
+
+    //LOAD AUDIO
+    println!("Loading waveform...");
+    let (waveform, sample_rate) = match load_audio_waveform::<Backend>(wav_file) {
+        Ok((w, sr)) => (w, sr),
+        Err(e) => {
+            eprintln!("Failed to load audio file: {}", e);
+            process::exit(1);
+        }
+    };
+
+
+
+
+
+
+
+    //RUN INFERENCE
     let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, waveform, sample_rate) {
         Ok((text, tokens)) => (text, tokens),
         Err(e) => {

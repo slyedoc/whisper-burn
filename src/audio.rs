@@ -4,7 +4,7 @@ use crate::helper::*;
 
 const N_FFT: usize = 400;
 const HOP_LENGTH: usize = 160;
-const N_MELS: usize = 80;
+const N_MELS: usize = 128;
 const WINDOW_LENGTH: usize = N_FFT;
 
 /// Returns the maximum number of waveform samples that can be submitted to `prep_audio`
