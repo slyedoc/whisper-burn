@@ -9,28 +9,32 @@ pub struct BeamNode<T: Clone> {
 pub fn beam_search<T, F, G>(
     initial_beams: Vec<BeamNode<T>>,
     next: F,
-    is_finished: G, 
+    is_finished: G,
     beam_size: usize,
     max_depth: usize,
 ) -> Vec<T>
 where
     T: Clone,
     F: Fn(&[BeamNode<T>]) -> Vec<Vec<(T, f64)>> + Clone,
-    G: Fn(&[T]) -> bool + Clone
+    G: Fn(&[T]) -> bool + Clone,
 {
     let mut beams = initial_beams;
     for i in 0..max_depth {
-        if let Some(beam) = beams.iter().max_by(|a, b| a.log_prob.partial_cmp(&b.log_prob).unwrap()) {
+        if let Some(beam) = beams
+            .iter()
+            .max_by(|a, b| a.log_prob.partial_cmp(&b.log_prob).unwrap())
+        {
             if is_finished(&beam.seq) {
                 break;
             }
         }
-        
+
         beams = beam_search_step(beams, next.clone(), is_finished.clone(), beam_size);
         println!("Depth: {}", i);
     }
 
-    beams.into_iter()
+    beams
+        .into_iter()
         .max_by(|a, b| a.log_prob.partial_cmp(&b.log_prob).unwrap())
         .map(|x| x.seq)
         .unwrap_or_else(Vec::new)
@@ -39,7 +43,7 @@ where
 pub fn beam_search_step<T, F, G>(
     beams: Vec<BeamNode<T>>,
     next: F,
-    is_finished: G, 
+    is_finished: G,
     beam_size: usize,
 ) -> Vec<BeamNode<T>>
 where
@@ -56,14 +60,13 @@ where
         if is_finished(&beam_node.seq) {
             finished_beams.push(beam_node);
         } else {
-            let top_new_beams = get_top_elements(&continuations, |(_, log_prob)| *log_prob, beam_size)
-                .into_iter()
-                .map(move |(tok, log_prob)| {
-                    BeamNode {
+            let top_new_beams =
+                get_top_elements(&continuations, |(_, log_prob)| *log_prob, beam_size)
+                    .into_iter()
+                    .map(move |(tok, log_prob)| BeamNode {
                         seq: [beam_node.seq.clone(), vec![tok.clone()]].concat(),
                         log_prob: *log_prob,
-                    }
-                });
+                    });
 
             new_beams.extend(top_new_beams);
         }
@@ -71,9 +74,11 @@ where
 
     get_top_elements(&new_beams, |beam| beam.log_prob, beam_size)
         .into_iter()
-        .chain(
-            get_top_elements(&finished_beams, |beam| beam.log_prob, beam_size)
-        )
+        .chain(get_top_elements(
+            &finished_beams,
+            |beam| beam.log_prob,
+            beam_size,
+        ))
         .cloned()
         .collect()
 }
@@ -92,7 +97,7 @@ fn get_top_elements<T>(elems: &[T], score: impl Fn(&T) -> f64, num: usize) -> Ve
             }
         }
 
-        if let Some( (idx, _) ) = scores.iter().enumerate().find(|(_, &s)| s >= score) {
+        if let Some((idx, _)) = scores.iter().enumerate().find(|(_, &s)| s >= score) {
             top_elems.insert(idx, elem);
             scores.insert(idx, score);
         } else {

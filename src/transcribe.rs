@@ -1,8 +1,8 @@
 use crate::audio::{max_waveform_samples, prep_audio};
+use crate::beam;
 use crate::helper::*;
 use crate::model::*;
 use crate::token::{self, *};
-use crate::beam;
 
 use num_traits::ToPrimitive;
 
@@ -13,17 +13,16 @@ use burn::{
     module::Module,
     tensor::{
         self,
+        activation::log_softmax,
         backend::{self, Backend},
-        Data, Float, Int, Tensor,
-        ElementConversion, 
-        activation::log_softmax, 
+        Data, ElementConversion, Float, Int, Tensor,
     },
 };
 
 pub fn waveform_to_text<B: Backend>(
     whisper: &Whisper<B>,
-    bpe: &Gpt2Tokenizer, 
-    lang: Language, 
+    bpe: &Gpt2Tokenizer,
+    lang: Language,
     waveform: Vec<f32>,
     sample_rate: usize,
 ) -> token::Result<(String, Vec<usize>)> {
@@ -141,14 +140,14 @@ use std::f32;
 
 #[derive(Clone)]
 struct BeamSearchToken {
-    token: usize, 
-    log_prob: f64, 
-}                             
+    token: usize,
+    log_prob: f64,
+}
 
 fn mels_to_text<B: Backend>(
     whisper: &Whisper<B>,
     bpe: &Gpt2Tokenizer,
-    lang: Language, 
+    lang: Language,
     mels: Tensor<B, 3>,
     prev_nonspecial_tokens: &[usize],
     padding: usize,
@@ -193,7 +192,9 @@ fn mels_to_text<B: Backend>(
     .collect();*/
 
     let mut initial_tokens = if prev_nonspecial_tokens.len() > 0 {
-        iter::once(start_of_prev_token).chain(prev_nonspecial_tokens.iter().cloned()).collect()
+        iter::once(start_of_prev_token)
+            .chain(prev_nonspecial_tokens.iter().cloned())
+            .collect()
     } else {
         Vec::new()
     };
@@ -202,21 +203,24 @@ fn mels_to_text<B: Backend>(
 
     initial_tokens.extend([start_token, lang_token, transcription_token, notimestamp]);
 
-    let initial_tokens = initial_tokens.into_iter().map(|tok| BeamSearchToken {
-        token: tok, 
-        log_prob: 0.0, 
-    }).collect();
+    let initial_tokens = initial_tokens
+        .into_iter()
+        .map(|tok| BeamSearchToken {
+            token: tok,
+            log_prob: 0.0,
+        })
+        .collect();
 
     /*let initial_tokens: Vec<_> = [start_token, lang_token, transcription_token, notimestamp].into_iter().map(|tok| BeamSearchToken {
-        token: tok, 
-        logit: 0.0, 
+        token: tok,
+        logit: 0.0,
     }).collect();*/
 
     type BeamNode = beam::BeamNode<BeamSearchToken>;
 
     let initial_tokens = BeamNode {
-        seq: initial_tokens, 
-        log_prob: 0.0, 
+        seq: initial_tokens,
+        log_prob: 0.0,
     };
 
     let encoder_output = whisper.forward_encoder(mels);
@@ -241,14 +245,21 @@ fn mels_to_text<B: Backend>(
     };
 
     let vocab_size = bpe.vocab_size();
-    let mut special_tokens_maskout: Vec<f32> = (0..vocab_size).into_iter().map(|token| if bpe.is_special(token) {neg_infty} else {0.0}).collect();
+    let mut special_tokens_maskout: Vec<f32> = (0..vocab_size)
+        .into_iter()
+        .map(|token| {
+            if bpe.is_special(token) {
+                neg_infty
+            } else {
+                0.0
+            }
+        })
+        .collect();
     //special_tokens_maskout[end_token] = 1.0;
 
-    let special_tokens_maskout = Tensor::from_data(Data::new(
-        special_tokens_maskout,
-        [vocab_size].into(),
-    ).convert())
-    .to_device(&device);
+    let special_tokens_maskout =
+        Tensor::from_data(Data::new(special_tokens_maskout, [vocab_size].into()).convert())
+            .to_device(&device);
 
     let beamsearch_next = |beams: &[BeamNode]| {
         // convert tokens into tensor
@@ -257,7 +268,10 @@ fn mels_to_text<B: Backend>(
             .iter()
             .flat_map(|beam| {
                 let additional_tokens = max_seq_len - beam.seq.len();
-                beam.seq.iter().map(|btok| btok.token).chain( iter::once(0).cycle().take(additional_tokens) )
+                beam.seq
+                    .iter()
+                    .map(|btok| btok.token)
+                    .chain(iter::once(0).cycle().take(additional_tokens))
             })
             .collect();
 
@@ -267,7 +281,8 @@ fn mels_to_text<B: Backend>(
         )))
         .to_device(&device);
 
-        let logits = whisper.forward_decoder(token_tensor, encoder_output.clone().repeat(0, beams.len()));
+        let logits =
+            whisper.forward_decoder(token_tensor, encoder_output.clone().repeat(0, beams.len()));
         let logits = if max_seq_len > 5 {
             logits
         } else {
@@ -280,7 +295,12 @@ fn mels_to_text<B: Backend>(
             let batch = i;
             let token_index = beam.seq.len() - 1;
 
-            log_probs.clone().slice([batch..batch + 1, token_index..token_index + 1]).flatten::<1>(0, 2).into_data().value
+            log_probs
+                .clone()
+                .slice([batch..batch + 1, token_index..token_index + 1])
+                .flatten::<1>(0, 2)
+                .into_data()
+                .value
         });
 
         let continuations = beam_log_probs
@@ -293,23 +313,29 @@ fn mels_to_text<B: Backend>(
                     .map(|(token_id, log_prob)| {
                         (
                             BeamSearchToken {
-                                token: token_id, 
-                                log_prob: log_prob, 
-                            }, 
-                            beam.log_prob + log_prob,  
+                                token: token_id,
+                                log_prob: log_prob,
+                            },
+                            beam.log_prob + log_prob,
                         )
-                    }
-                    )
+                    })
                     .collect()
-            }).collect();
+            })
+            .collect();
 
         continuations
     };
 
-    let tokens: Vec<_> = beam::beam_search(vec![initial_tokens], beamsearch_next, beamsearch_is_finished, beam_size, max_depth)
-        .into_iter()
-        .map(|btok| btok.token)
-        .collect();
+    let tokens: Vec<_> = beam::beam_search(
+        vec![initial_tokens],
+        beamsearch_next,
+        beamsearch_is_finished,
+        beam_size,
+        max_depth,
+    )
+    .into_iter()
+    .map(|btok| btok.token)
+    .collect();
 
     /*let mut tokens: Vec<_> = [start_token, lang_token, transcription_token, notimestamp].to_vec();
 
@@ -392,10 +418,7 @@ fn first_repetition_end(tokens: &[usize], period: usize) -> usize {
     period
 }
 
-fn repetition_period(
-    tokens: &[usize], 
-    min_repetitions: usize, 
-) -> Option<usize> {
+fn repetition_period(tokens: &[usize], min_repetitions: usize) -> Option<usize> {
     for i in (0..tokens.len()).into_iter().rev() {
         let period = tokens.len() - i;
 
@@ -440,7 +463,7 @@ fn find_repeated_tokens_index(
     if n_repeats >= min_repeat_count {
         let first_repeat_index = repeats.next().unwrap().0;
         let end = repeats.next().unwrap().0;
-        return Some( (first_repeat_index, end) );
+        return Some((first_repeat_index, end));
     } else {
         return None;
     };

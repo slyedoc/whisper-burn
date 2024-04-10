@@ -12,7 +12,8 @@ pub struct Gpt2Tokenizer {
 impl Gpt2Tokenizer {
     pub fn new(model_name: &str) -> Result<Self> {
         //let mut tokenizer = tokenizers::Tokenizer::from_pretrained("gpt2", None)?;
-        let mut tokenizer = tokenizers::Tokenizer::from_file(&format!("models/{}/tokenizer.json", &model_name))?;
+        let mut tokenizer =
+            tokenizers::Tokenizer::from_file(&format!("models/{}/tokenizer.json", &model_name))?;
         //tokenizer.add_special_tokens(&construct_special_tokens());
 
         Ok(Self { tokenizer })
@@ -66,7 +67,7 @@ pub enum Language {
     German,
     Spanish,
     Russian,
-    Korean, 
+    Korean,
     French,
     Japanese,
     Portuguese,
@@ -77,7 +78,7 @@ pub enum Language {
     Arabic,
     Swedish,
     Italian,
-    Indonesian, 
+    Indonesian,
     Hindi,
     Finnish,
     Vietnamese,
@@ -139,11 +140,11 @@ pub enum Language {
     Amharic,
     Yiddish,
     Lao,
-    Uzbek, 
+    Uzbek,
     Faroese,
     HaitianCreole,
     Pashto,
-    Turkmen, 
+    Turkmen,
     Nynorsk,
     Maltese,
     Samoan,
@@ -157,7 +158,7 @@ pub enum Language {
     Hausa,
     Bashkir,
     Javanese,
-    Sundanese
+    Sundanese,
 }
 
 impl Language {

@@ -1,4 +1,4 @@
-use burn::tensor::{activation::relu, backend::Backend, Tensor, ElementConversion};
+use burn::tensor::{activation::relu, backend::Backend, ElementConversion, Tensor};
 
 use crate::helper::*;
 
@@ -152,7 +152,8 @@ fn fft_frequencies_device<B: Backend>(
     device: &B::Device,
 ) -> Tensor<B, 1> {
     //return np.fft.rfftfreq(n=n_fft, d=1.0 / sr)
-    Tensor::arange_device(0..(n_fft / 2 + 1), device).float()
+    Tensor::arange_device(0..(n_fft / 2 + 1), device)
+        .float()
         .mul_scalar(sample_rate / n_fft as f64)
 }
 
@@ -187,7 +188,8 @@ fn mel_frequencies_device<B: Backend>(
     let max_mel = hz_to_mel(fmax, htk);
 
     //mels = np.linspace(min_mel, max_mel, n_mels)
-    let mels = Tensor::arange_device(0..n_mels, device).float()
+    let mels = Tensor::arange_device(0..n_mels, device)
+        .float()
         .mul_scalar((max_mel - min_mel) / (n_mels - 1) as f64)
         .add_scalar(min_mel);
 
@@ -353,7 +355,9 @@ pub fn stfft<B: Backend>(
         .unsqueeze::<2>()
         .transpose()
         .repeat(1, n_fft)
-        * Tensor::arange_device(0..n_fft, &device).float().unsqueeze::<2>();
+        * Tensor::arange_device(0..n_fft, &device)
+            .float()
+            .unsqueeze::<2>();
 
     // convolve the input slices with the window and waves
     let real_part = (b.clone().cos() * window.clone().unsqueeze())
