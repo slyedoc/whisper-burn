@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::iter;
 
 use whisper::helper::*;
+use whisper::model;
 use whisper::model::*;
 use whisper::{token, token::Language};
 use whisper::transcribe::waveform_to_text;
@@ -62,10 +63,10 @@ use burn::record::{DefaultRecorder, Recorder, RecorderError};
 
 fn load_whisper_model_file<B: Backend>(
     config: &WhisperConfig,
-    filename: &str,
+    model_name: &str,
 ) -> Result<Whisper<B>, RecorderError> {
     DefaultRecorder::new()
-        .load(filename.into())
+        .load(format!("models/{}/{}", model_name, model_name).into())
         .map(|record| config.init().load_record(record))
 }
 
@@ -76,16 +77,81 @@ fn main() {
 
 
     //COMMAND LINE 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "wgpu-backend")] {
-            type Backend = WgpuBackend<AutoGraphicsApi, f32, i32>;
-            let device = WgpuDevice::BestAvailable;
-        } else if #[cfg(feature = "torch-backend")] {
-            type Backend = TchBackend<f32>;
-            let device = TchDevice::Cuda(0);
-        }
-    }
+    let (model_name, wav_file, text_file, lang) = parse_args();
 
+
+    //LOAD THE MODEL
+    let bpe = match Gpt2Tokenizer::new(&model_name) {
+        Ok(bpe) => bpe,
+        Err(e) => {
+            eprintln!("Failed to load tokenizer: {}", e);
+            process::exit(1);
+        }
+    };
+
+    let whisper_config = match WhisperConfig::load(&format!("models/{}/{}.cfg", &model_name, &model_name)) {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("Failed to load whisper config: {}", e);
+            process::exit(1);
+        }
+    };
+
+    println!("Loading model...");
+    let whisper: Whisper<Backend> = match load_whisper_model_file(&whisper_config, &model_name) {
+        Ok(whisper_model) => whisper_model,
+        Err(e) => {
+            eprintln!("Failed to load whisper model file: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // let whisper = whisper.to_device(&device);
+    // println!("{:?}", &whisper);
+
+
+
+    // //START AUDIO SERVER
+
+
+
+
+    // //LOAD AUDIO
+    // println!("Loading waveform...");
+    // let (waveform, sample_rate) = match load_audio_waveform::<Backend>(wav_file) {
+    //     Ok((w, sr)) => (w, sr),
+    //     Err(e) => {
+    //         eprintln!("Failed to load audio file: {}", e);
+    //         process::exit(1);
+    //     }
+    // };
+
+
+
+
+
+
+
+    // //RUN INFERENCE
+    // let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, waveform, sample_rate) {
+    //     Ok((text, tokens)) => (text, tokens),
+    //     Err(e) => {
+    //         eprintln!("Error during transcription: {}", e);
+    //         process::exit(1);
+    //     }
+    // };
+
+    // fs::write(text_file, text).unwrap_or_else(|e| {
+    //     eprintln!("Error writing transcription file: {}", e);
+    //     process::exit(1);
+    // });
+
+    println!("Transcription finished.");
+}
+
+
+
+fn parse_args() -> (String, String, String, Language) {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 5 {
@@ -96,8 +162,9 @@ fn main() {
         process::exit(1);
     }
 
-    let wav_file = &args[2];
-    let text_file = &args[4];
+    let model_name = args[1].clone();
+    let wav_file = args[2].clone();
+    let text_file = args[4].clone();
 
     let lang_str = &args[3];
     let lang = match Language::iter().find(|lang| lang.as_str() == lang_str) {
@@ -108,78 +175,5 @@ fn main() {
         }
     };
 
-    let model_name = &args[1];
-
-
-
-
-
-    //LOAD THE MODEL
-    let bpe = match Gpt2Tokenizer::new() {
-        Ok(bpe) => bpe,
-        Err(e) => {
-            eprintln!("Failed to load tokenizer: {}", e);
-            process::exit(1);
-        }
-    };
-
-    let whisper_config = match WhisperConfig::load(&format!("{}.cfg", model_name)) {
-        Ok(config) => config,
-        Err(e) => {
-            eprintln!("Failed to load whisper config: {}", e);
-            process::exit(1);
-        }
-    };
-    println!("{:?}", &whisper_config);
-
-    println!("Loading model...");
-    let whisper: Whisper<Backend> = match load_whisper_model_file(&whisper_config, model_name) {
-        Ok(whisper_model) => whisper_model,
-        Err(e) => {
-            eprintln!("Failed to load whisper model file: {}", e);
-            process::exit(1);
-        }
-    };
-
-    let whisper = whisper.to_device(&device);
-
-
-
-
-    //START AUDIO SERVER
-
-
-
-
-    //LOAD AUDIO
-    println!("Loading waveform...");
-    let (waveform, sample_rate) = match load_audio_waveform::<Backend>(wav_file) {
-        Ok((w, sr)) => (w, sr),
-        Err(e) => {
-            eprintln!("Failed to load audio file: {}", e);
-            process::exit(1);
-        }
-    };
-
-
-
-
-
-
-
-    //RUN INFERENCE
-    let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, waveform, sample_rate) {
-        Ok((text, tokens)) => (text, tokens),
-        Err(e) => {
-            eprintln!("Error during transcription: {}", e);
-            process::exit(1);
-        }
-    };
-
-    fs::write(text_file, text).unwrap_or_else(|e| {
-        eprintln!("Error writing transcription file: {}", e);
-        process::exit(1);
-    });
-
-    println!("Transcription finished.");
+    (model_name, wav_file, text_file, lang)
 }
