@@ -30,7 +30,6 @@ where
         }
 
         beams = beam_search_step(beams, next.clone(), is_finished.clone(), beam_size);
-        println!("Depth: {}", i);
     }
 
     beams

@@ -17,7 +17,9 @@ use strum::IntoEnumIterator;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
-    env, fs, iter, process
+    fs::OpenOptions,
+    io::Write,
+    env, io, iter, process
 };
 use whisper::{
     audio::prep_audio,
@@ -27,6 +29,7 @@ use whisper::{
     transcribe::waveform_to_text,
     token, token::Language
 };
+use chrono::Local;
 
 //inference device backend
 type IDBackend = WgpuBackend<AutoGraphicsApi, f32, i32>;
@@ -53,38 +56,51 @@ fn main() {
     let audio_ring_buffer = Arc::new(Mutex::new(Vec::new()));
     let audio_ring_buffer_2 = audio_ring_buffer.clone();
 
+    //loop to record the audio data forever (until the user stops the program)
     std::thread::spawn(move || loop {
-        let data = record_audio(&audio_device, &audio_config, 300).unwrap();
+        let data = record_audio(&audio_device, &audio_config, 1000).unwrap();
         audio_ring_buffer.lock().unwrap().extend_from_slice(&data);
-        let max_len = data.len() * 16;
+        let max_len = data.len() * 4;
         let data_len = data.len();
-        let len = audio_ring_buffer.lock().unwrap().len();
-        if len > max_len {
-            let mut data = audio_ring_buffer.lock().unwrap();
-            let new_data = data[data_len..].to_vec();
-            *data = new_data;
+
+        let mut audio_buffer = audio_ring_buffer.lock().unwrap();
+        if audio_buffer.len() > max_len {
+            let old_data_end = audio_buffer[audio_buffer.len() - data_len..].to_vec();
+            *audio_buffer = Vec::new();
+            audio_buffer.extend(old_data_end);
+            audio_buffer.extend(data);
         }
     });
 
     // loop to process the audio data forever (until the user stops the program)
     println!("Transcribing audio...");
+    let file = Arc::new(Mutex::new(OpenOptions::new().append(true).open("audio.txt").expect("Failed to open output.txt")));
     for (i, _) in iter::repeat(()).enumerate() {
-        std::thread::sleep(std::time::Duration::from_millis(3000));
+        std::thread::sleep(std::time::Duration::from_millis(2000));
         let data = audio_ring_buffer_2.lock().unwrap().clone();
-        let pcm_data: Vec<_> = data[..data.len() / channel_count as usize]
+        let audio_vectors: Vec<_> = data[..data.len() / channel_count as usize]
             .iter()
             .map(|v| *v as f32 / 32768.)
             .collect();
 
         //RUN INFERENCE
-        let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, pcm_data, 16000) {
+        let vector_length = audio_vectors.len();
+        let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, audio_vectors, 16000) {
             Ok((text, tokens)) => (text, tokens),
             Err(e) => {
                 eprintln!("Error during transcription: {}", e);
                 process::exit(1);
             }
         };
-        println!("{:?}", text);
+
+        let output = format!("{}, {}, {}, {}", i, text, Local::now().format("%Y-%m-%d %H:%M:%S"), vector_length);
+        println!("{}", output);
+        
+        let mut file = file.lock().unwrap();
+        writeln!(file, "{}\n", output).unwrap_or_else(|e| {
+            eprintln!("Error writing transcription file: {}", e);
+            process::exit(1);
+        });
     }
 }
 
@@ -186,6 +202,5 @@ fn record_audio(
     let data = writer.lock().unwrap().clone();
     let step = 3;
     let data: Vec<i16> = data.iter().step_by(step).copied().collect();
-    //println!("{:?}", data);
     Ok(data)
 }

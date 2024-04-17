@@ -3,11 +3,11 @@ use crate::beam;
 use crate::helper::*;
 use crate::model::*;
 use crate::token::{self, *};
-
+use std::{
+    ops::Div,
+    f32, iter
+};
 use num_traits::ToPrimitive;
-
-use std::iter;
-
 use burn::{
     config::Config,
     module::Module,
@@ -64,7 +64,7 @@ pub fn waveform_to_text<B: Backend>(
         //tokens.extend(new_tokens);
 
         text = bpe.decode(&tokens[..], true)?;
-        println!("Chunk {}: {}\n", i, text);
+        //println!("Chunk {}: {}\n", i, text);
 
         //text += &new_text;
     }
@@ -108,8 +108,6 @@ fn find_chunk_overlap(
     }
 }
 
-use std::ops::Div;
-
 fn waveform_to_mel_tensor<B: Backend>(
     waveform: Vec<f32>,
     sample_rate: usize,
@@ -135,8 +133,6 @@ fn waveform_to_mel_tensor<B: Backend>(
         mels
     })
 }
-
-use std::f32;
 
 #[derive(Clone)]
 struct BeamSearchToken {

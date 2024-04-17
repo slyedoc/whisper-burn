@@ -1,1 +1,79 @@
-Hello, I am the whisper machine learning model. If you see this as text then I am working properly.
+
+ 1,
+
+ [unintelligible]
+
+ "We're getting a lot of different stuff"
+
+ *Singing*
+
+ *inaudible*
+
+ *inaudible*
+
+ *inaudible*
+
+ [inaudible]
+
+ *inaudible*
+
+ [Music]
+
+ (I hope)
+
+ i can't see this
+
+ *unintelligible*
+
+ you you
+
+ data and data
+
+ and there's
+
+ data and there isn't too much
+
+ [Music]
+
+ [Music]
+
+ [Music]
+
+ [INAUDIBLE]
+
+0,  [Music], 2024-04-11 20:59:46, 9558
+
+1,  oh oh, 2024-04-11 20:59:47, 23895
+
+2,  the screens, 2024-04-11 20:59:49, 43011
+
+3,  [inaudible], 2024-04-11 20:59:50, 57348
+
+4,  [inaudible], 2024-04-11 20:59:52, 76464
+
+5,  [S, 2024-04-11 20:59:54, 23895
+
+0,  . ., 2024-04-11 21:15:39, 16043
+
+1,  Fuck him, 2024-04-11 21:15:44, 47958
+
+2,  uhhh, 2024-04-11 21:15:46, 47787
+
+3,  * L, 2024-04-11 21:15:50, 32086
+
+4,  Kim Kim, 2024-04-11 21:15:52, 32086
+
+5,  *im, 2024-04-11 21:15:58, 31744
+
+0,  and if, 2024-04-17 11:33:40, 16043
+
+1,  We have loaded the model as this, 2024-04-17 11:33:43, 47958
+
+2,  Driving Audio. We're just gonna check., 2024-04-17 11:33:46, 63830
+
+3,  with outback, 2024-04-17 11:33:49, 64172
+
+4,  (S), 2024-04-17 11:33:51, 63830
+
+5,  [Music], 2024-04-17 11:33:54, 48129
+
