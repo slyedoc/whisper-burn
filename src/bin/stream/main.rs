@@ -4,15 +4,16 @@ use burn::{
     record::{DefaultRecorder, Recorder, RecorderError},
     tensor::{
         self,
-        backend::{self, Backend},
+        backend::Backend,
         Data, Float, Int, Tensor,
     },
+    backend::wgpu::{Wgpu, WgpuDevice}
 };
-use burn_wgpu::{AutoGraphicsApi, WgpuBackend, WgpuDevice};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use hound::{self, SampleFormat};
 use num_traits::ToPrimitive;
 use anyhow::{Error as E, Result};
+use chrono::Local;
 use strum::IntoEnumIterator;
 use std::{
     collections::HashMap,
@@ -21,7 +22,7 @@ use std::{
     io::Write,
     env, io, iter, process
 };
-use whisper::{
+use whisper_stream::{
     audio::prep_audio,
     model::*,
     helper::*,
@@ -29,16 +30,14 @@ use whisper::{
     transcribe::waveform_to_text,
     token, token::Language
 };
-use chrono::Local;
 
-//inference device backend
-type IDBackend = WgpuBackend<AutoGraphicsApi, f32, i32>;
 fn main() {
     //COMMAND LINE
     let (model_name, wav_file, text_file, lang) = parse_args();
 
-    let device = WgpuDevice::BestAvailable;
-    let (bpe, whisper_config, whisper) = load_model(&model_name, &device);
+    let tensor_device = WgpuDevice::default();
+    let (bpe, whisper_config, whisper) = load_model::<Wgpu>(&model_name, &tensor_device);
+
 
     //START AUDIO SERVER
     // Set up the input device and stream with the default input config.
@@ -134,17 +133,21 @@ fn parse_args() -> (String, String, String, Language) {
 fn load_whisper_model_file<B: Backend>(
     config: &WhisperConfig,
     model_name: &str,
+    tensor_device_ref: &B::Device
 ) -> Result<Whisper<B>, RecorderError> {
+    
+    println!("{}", format!("models/{}/{}", model_name, model_name));
+    
     DefaultRecorder::new()
-        .load(format!("models/{}/{}", model_name, model_name).into())
-        .map(|record| config.init().load_record(record))
+        .load(format!("models/{}/{}", model_name, model_name).into(), tensor_device_ref)
+        .map(|record| config.init(tensor_device_ref).load_record(record))
 }
 
-fn load_model(
+fn load_model<B: Backend>(
     model_name: &str,
-    device: &WgpuDevice,
-) -> (Gpt2Tokenizer, WhisperConfig, Whisper<IDBackend>) {
-    let bpe = match Gpt2Tokenizer::new(&model_name) {
+    tensor_device_ref: &B::Device,
+) -> (Gpt2Tokenizer, WhisperConfig, Whisper<B>) {
+    let bpe = match Gpt2Tokenizer::new(model_name) {
         Ok(bpe) => bpe,
         Err(e) => {
             eprintln!("Failed to load tokenizer: {}", e);
@@ -153,7 +156,7 @@ fn load_model(
     };
 
     let whisper_config =
-        match WhisperConfig::load(&format!("models/{}/{}.cfg", &model_name, &model_name)) {
+        match WhisperConfig::load(&format!("models/{}/{}.cfg", model_name, model_name)) {
             Ok(config) => config,
             Err(e) => {
                 eprintln!("Failed to load whisper config: {}", e);
@@ -162,7 +165,7 @@ fn load_model(
         };
 
     println!("Loading model...");
-    let whisper: Whisper<IDBackend> = match load_whisper_model_file(&whisper_config, &model_name) {
+    let whisper: Whisper<B> = match load_whisper_model_file(&whisper_config, model_name, tensor_device_ref) {
         Ok(whisper_model) => whisper_model,
         Err(e) => {
             eprintln!("Failed to load whisper model file: {}", e);
@@ -170,19 +173,19 @@ fn load_model(
         }
     };
 
-    let whisper = whisper.to_device(&device);
+    let whisper = whisper.to_device(&tensor_device_ref);
 
     (bpe, whisper_config, whisper)
 }
 
 fn record_audio(
-    device: &cpal::Device,
+    audio_device: &cpal::Device,
     config: &cpal::SupportedStreamConfig,
     milliseconds: u64,
 ) -> Result<Vec<i16>> {
     let writer = Arc::new(Mutex::new(Vec::new()));
     let writer_2 = writer.clone();
-    let stream = device.build_input_stream(
+    let stream = audio_device.build_input_stream(
         &config.config(),
         move |data: &[f32], _: &cpal::InputCallbackInfo| {
             let processed = data

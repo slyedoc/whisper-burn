@@ -125,7 +125,7 @@ fn waveform_to_mel_tensor<B: Backend>(
 
         let slice = &waveform[start..end];
 
-        let waveform = Tensor::from_floats(tensor::Data::new(slice.to_vec(), [slice.len()].into()))
+        let waveform = Tensor::from_floats(tensor::Data::new(slice.to_vec(), [slice.len()].into()), &device)
             .to_device(&device);
 
         let mels = prep_audio(waveform.unsqueeze(), sample_rate as f64);
@@ -166,7 +166,7 @@ fn mels_to_text<B: Backend>(
     let mels = Tensor::cat(
         vec![
             mels.slice([0..1, 0..n_mel, 0..(n_ctx).min(n_ctx_max_encoder - padding)]),
-            Tensor::zeros_device([1, n_mel, padding], &device),
+            Tensor::zeros([1, n_mel, padding], &device),
         ],
         2,
     );
@@ -254,7 +254,7 @@ fn mels_to_text<B: Backend>(
     //special_tokens_maskout[end_token] = 1.0;
 
     let special_tokens_maskout =
-        Tensor::from_data(Data::new(special_tokens_maskout, [vocab_size].into()).convert())
+        Tensor::from_data(Data::new(special_tokens_maskout, [vocab_size].into()).convert(), &device)
             .to_device(&device);
 
     let beamsearch_next = |beams: &[BeamNode]| {
@@ -274,7 +274,7 @@ fn mels_to_text<B: Backend>(
         let token_tensor = Tensor::from_ints(Data::from_usize(Data::new(
             flattened_tokens,
             [beams.len(), max_seq_len].into(),
-        )))
+        )), &device)
         .to_device(&device);
 
         let logits =

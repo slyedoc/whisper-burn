@@ -1,27 +1,12 @@
 [package]
-name = "whisper"
+name = "whisper_stream"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = ["torch-backend"]
-torch-backend = ["burn-tch"]
-wgpu-backend = ["burn-wgpu"]
-
-[dependencies.burn-tch]
-package = "burn-tch"
-git = "https://github.com/burn-rs/burn.git"
-optional = true
-
-[dependencies.burn-wgpu]
-package = "burn-wgpu"
-git = "https://github.com/burn-rs/burn.git"
-optional = true
-
 [dependencies]
-burn = { git = "https://github.com/burn-rs/burn.git" }
+burn = { git = "https://github.com/burn-rs/burn.git", features=["wgpu"] }
 serde = {version = "1.0.171", features = ["std", "derive"]}
 num-traits = "0.2.15"
 hound = "3.5.0"

@@ -32,12 +32,12 @@ impl Gpt2Tokenizer {
 
     pub fn decode(&self, tokens: &[usize], skip_special: bool) -> Result<String> {
         self.tokenizer
-            .decode(tokens.iter().map(|t| *t as u32).collect(), skip_special)
+            .decode(&tokens.iter().map(|t| *t as u32).collect::<Vec<u32>>(), skip_special)
     }
 
     pub fn is_special(&self, token: usize) -> bool {
         self.tokenizer
-            .decode(vec![token as u32], true)
+            .decode(vec![token as u32].as_slice(), true)
             .ok()
             .map(|s| s.is_empty())
             .unwrap_or(false)
