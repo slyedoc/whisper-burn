@@ -3,11 +3,6 @@ use crate::beam;
 use crate::helper::*;
 use crate::model::*;
 use crate::token::{self, *};
-use std::{
-    ops::Div,
-    f32, iter
-};
-use num_traits::ToPrimitive;
 use burn::{
     config::Config,
     module::Module,
@@ -18,6 +13,8 @@ use burn::{
         Data, ElementConversion, Float, Int, Tensor,
     },
 };
+use num_traits::ToPrimitive;
+use std::{f32, iter, ops::Div};
 
 pub fn waveform_to_text<B: Backend>(
     whisper: &Whisper<B>,
@@ -125,8 +122,11 @@ fn waveform_to_mel_tensor<B: Backend>(
 
         let slice = &waveform[start..end];
 
-        let waveform = Tensor::from_floats(tensor::Data::new(slice.to_vec(), [slice.len()].into()), &device)
-            .to_device(&device);
+        let waveform = Tensor::from_floats(
+            tensor::Data::new(slice.to_vec(), [slice.len()].into()),
+            &device,
+        )
+        .to_device(&device);
 
         let mels = prep_audio(waveform.unsqueeze(), sample_rate as f64);
 
@@ -253,9 +253,11 @@ fn mels_to_text<B: Backend>(
         .collect();
     //special_tokens_maskout[end_token] = 1.0;
 
-    let special_tokens_maskout =
-        Tensor::from_data(Data::new(special_tokens_maskout, [vocab_size].into()).convert(), &device)
-            .to_device(&device);
+    let special_tokens_maskout = Tensor::from_data(
+        Data::new(special_tokens_maskout, [vocab_size].into()).convert(),
+        &device,
+    )
+    .to_device(&device);
 
     let beamsearch_next = |beams: &[BeamNode]| {
         // convert tokens into tensor
@@ -271,10 +273,13 @@ fn mels_to_text<B: Backend>(
             })
             .collect();
 
-        let token_tensor = Tensor::from_ints(Data::from_usize(Data::new(
-            flattened_tokens,
-            [beams.len(), max_seq_len].into(),
-        )), &device)
+        let token_tensor = Tensor::from_ints(
+            Data::from_usize(Data::new(
+                flattened_tokens,
+                [beams.len(), max_seq_len].into(),
+            )),
+            &device,
+        )
         .to_device(&device);
 
         let logits =

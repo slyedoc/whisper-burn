@@ -152,7 +152,7 @@ fn fft_frequencies_device<B: Backend>(
     device: &B::Device,
 ) -> Tensor<B, 1> {
     //return np.fft.rfftfreq(n=n_fft, d=1.0 / sr)
-    Tensor::arange(0..(n_fft / 2 + 1)  as i64, device)
+    Tensor::arange(0..(n_fft / 2 + 1) as i64, device)
         .float()
         .mul_scalar(sample_rate / n_fft as f64)
 }

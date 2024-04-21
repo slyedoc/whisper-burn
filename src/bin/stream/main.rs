@@ -1,34 +1,33 @@
+use anyhow::{Error as E, Result};
 use burn::{
+    backend::wgpu::{Wgpu, WgpuDevice},
     config::Config,
     module::Module,
     record::{DefaultRecorder, Recorder, RecorderError},
-    tensor::{
-        self,
-        backend::Backend,
-        Data, Float, Int, Tensor,
-    },
-    backend::wgpu::{Wgpu, WgpuDevice}
+    tensor::{self, backend::Backend, Data, Float, Int, Tensor},
 };
+use chrono::Local;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use hound::{self, SampleFormat};
 use num_traits::ToPrimitive;
-use anyhow::{Error as E, Result};
-use chrono::Local;
-use strum::IntoEnumIterator;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    env,
     fs::OpenOptions,
+    io,
     io::Write,
-    env, io, iter, process
+    iter, process,
+    sync::{Arc, Mutex},
 };
+use strum::IntoEnumIterator;
 use whisper_stream::{
     audio::prep_audio,
-    model::*,
     helper::*,
+    model::*,
+    token,
+    token::Language,
     token::{Gpt2Tokenizer, SpecialToken},
     transcribe::waveform_to_text,
-    token, token::Language
 };
 
 fn main() {
@@ -37,7 +36,6 @@ fn main() {
 
     let tensor_device = WgpuDevice::default();
     let (bpe, whisper_config, whisper) = load_model::<Wgpu>(&model_name, &tensor_device);
-
 
     //START AUDIO SERVER
     // Set up the input device and stream with the default input config.
@@ -73,7 +71,12 @@ fn main() {
 
     // loop to process the audio data forever (until the user stops the program)
     println!("Transcribing audio...");
-    let file = Arc::new(Mutex::new(OpenOptions::new().append(true).open("audio.txt").expect("Failed to open output.txt")));
+    let file = Arc::new(Mutex::new(
+        OpenOptions::new()
+            .append(true)
+            .open("audio.txt")
+            .expect("Failed to open output.txt"),
+    ));
     for (i, _) in iter::repeat(()).enumerate() {
         std::thread::sleep(std::time::Duration::from_millis(2000));
         let data = audio_ring_buffer_2.lock().unwrap().clone();
@@ -92,9 +95,15 @@ fn main() {
             }
         };
 
-        let output = format!("{}, {}, {}, {}", i, text, Local::now().format("%Y-%m-%d %H:%M:%S"), vector_length);
+        let output = format!(
+            "{}, {}, {}, {}",
+            i,
+            text,
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+            vector_length
+        );
         println!("{}", output);
-        
+
         let mut file = file.lock().unwrap();
         writeln!(file, "{}\n", output).unwrap_or_else(|e| {
             eprintln!("Error writing transcription file: {}", e);
@@ -133,13 +142,15 @@ fn parse_args() -> (String, String, String, Language) {
 fn load_whisper_model_file<B: Backend>(
     config: &WhisperConfig,
     model_name: &str,
-    tensor_device_ref: &B::Device
+    tensor_device_ref: &B::Device,
 ) -> Result<Whisper<B>, RecorderError> {
-    
     println!("{}", format!("models/{}/{}", model_name, model_name));
-    
+
     DefaultRecorder::new()
-        .load(format!("models/{}/{}", model_name, model_name).into(), tensor_device_ref)
+        .load(
+            format!("models/{}/{}", model_name, model_name).into(),
+            tensor_device_ref,
+        )
         .map(|record| config.init(tensor_device_ref).load_record(record))
 }
 
@@ -165,13 +176,14 @@ fn load_model<B: Backend>(
         };
 
     println!("Loading model...");
-    let whisper: Whisper<B> = match load_whisper_model_file(&whisper_config, model_name, tensor_device_ref) {
-        Ok(whisper_model) => whisper_model,
-        Err(e) => {
-            eprintln!("Failed to load whisper model file: {}", e);
-            process::exit(1);
-        }
-    };
+    let whisper: Whisper<B> =
+        match load_whisper_model_file(&whisper_config, model_name, tensor_device_ref) {
+            Ok(whisper_model) => whisper_model,
+            Err(e) => {
+                eprintln!("Failed to load whisper model file: {}", e);
+                process::exit(1);
+            }
+        };
 
     let whisper = whisper.to_device(&tensor_device_ref);
 

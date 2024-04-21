@@ -25,7 +25,7 @@ fn numpy_to_tensor<B: Backend, const D: usize>(numpy_data: NpyData<f32>) -> Tens
         .into();
 
     //let tensor_device_ref = Tensor::from_primitive([0]).device();
-    let tensor_device_ref = Default::default();//WgpuDevice::BestAvailable;
+    let tensor_device_ref = Default::default(); //WgpuDevice::BestAvailable;
 
     Tensor::from_floats(&v[D..], &tensor_device_ref).reshape(shape)
 }
@@ -66,7 +66,9 @@ fn load_linear<B: Backend>(path: &str) -> Result<nn::Linear<B>, Box<dyn Error>> 
         bias: Some(bias),
     };
 
-    let linear: nn::Linear<B> = nn::LinearConfig::new(3, 3).init(&tensor_device_ref).load_record(record);
+    let linear: nn::Linear<B> = nn::LinearConfig::new(3, 3)
+        .init(&tensor_device_ref)
+        .load_record(record);
     Ok(linear)
 }
 
@@ -84,7 +86,9 @@ fn load_layer_norm<B: Backend>(path: &str) -> Result<nn::LayerNorm<B>, Box<dyn E
         epsilon: <f64 as Module<B>>::into_record(eps),
     };
 
-    let layer_norm: nn::LayerNorm<B> = nn::LayerNormConfig::new(n_state).init(&tensor_device_ref).load_record(record);
+    let layer_norm: nn::LayerNorm<B> = nn::LayerNormConfig::new(n_state)
+        .init(&tensor_device_ref)
+        .load_record(record);
 
     Ok(layer_norm)
 }
@@ -229,7 +233,8 @@ fn load_audio_encoder<B: Backend>(
         .collect::<Result<_, _>>()?;
 
     let ln_post = load_layer_norm(&format!("{}/{}", path, "ln_post"))?;
-    let positional_embedding = Param::from_tensor(load_tensor::<B, 2>("positional_embedding", path)?);
+    let positional_embedding =
+        Param::from_tensor(load_tensor::<B, 2>("positional_embedding", path)?);
 
     let [n_audio_ctx, _] = positional_embedding.dims();
 

@@ -84,17 +84,18 @@ impl TextDecoderConfig {
         let token_embedding = Param::from_tensor(Tensor::random(
             [self.n_vocab, self.n_text_state],
             Distribution::Normal(0.0, 1.0),
-            tensor_device_ref
+            tensor_device_ref,
         ));
         let positional_embedding = Param::from_tensor(Tensor::random(
             [self.n_text_ctx, self.n_text_state],
             Distribution::Normal(0.0, 1.0),
-            tensor_device_ref
+            tensor_device_ref,
         ));
         let blocks: Vec<_> = (0..self.n_text_layer)
             .into_iter()
             .map(|_| {
-                ResidualDecoderAttentionBlockConfig::new(self.n_text_state, self.n_text_head).init(tensor_device_ref)
+                ResidualDecoderAttentionBlockConfig::new(self.n_text_state, self.n_text_head)
+                    .init(tensor_device_ref)
             })
             .collect();
         let ln = nn::LayerNormConfig::new(self.n_text_state).init(tensor_device_ref);
@@ -192,7 +193,7 @@ impl AudioEncoderConfig {
         let positional_embedding = Param::from_tensor(Tensor::random(
             [self.n_audio_ctx, self.n_audio_state],
             Distribution::Normal(0.0, 1.0),
-            tensor_device_ref
+            tensor_device_ref,
         ));
         let n_mels = self.n_mels;
         let n_audio_ctx = self.n_audio_ctx;
@@ -271,8 +272,12 @@ pub struct ResidualEncoderAttentionBlockConfig {
 }
 
 impl ResidualEncoderAttentionBlockConfig {
-    pub fn init<B: Backend>(&self, tensor_device_ref: &B::Device) -> ResidualEncoderAttentionBlock<B> {
-        let attn = MultiHeadSelfAttentionConfig::new(self.n_state, self.n_head).init(tensor_device_ref);
+    pub fn init<B: Backend>(
+        &self,
+        tensor_device_ref: &B::Device,
+    ) -> ResidualEncoderAttentionBlock<B> {
+        let attn =
+            MultiHeadSelfAttentionConfig::new(self.n_state, self.n_head).init(tensor_device_ref);
         let attn_ln = nn::LayerNormConfig::new(self.n_state).init(tensor_device_ref);
         let mlp = MLPConfig::new(self.n_state).init(tensor_device_ref);
         let mlp_ln = nn::LayerNormConfig::new(self.n_state).init(tensor_device_ref);
@@ -309,11 +314,16 @@ pub struct ResidualDecoderAttentionBlockConfig {
 }
 
 impl ResidualDecoderAttentionBlockConfig {
-    pub fn init<B: Backend>(&self, tensor_device_ref: &B::Device) -> ResidualDecoderAttentionBlock<B> {
-        let attn = MultiHeadSelfAttentionConfig::new(self.n_state, self.n_head).init(tensor_device_ref);
+    pub fn init<B: Backend>(
+        &self,
+        tensor_device_ref: &B::Device,
+    ) -> ResidualDecoderAttentionBlock<B> {
+        let attn =
+            MultiHeadSelfAttentionConfig::new(self.n_state, self.n_head).init(tensor_device_ref);
         let attn_ln = nn::LayerNormConfig::new(self.n_state).init(tensor_device_ref);
 
-        let cross_attn = MultiHeadCrossAttentionConfig::new(self.n_state, self.n_head).init(tensor_device_ref);
+        let cross_attn =
+            MultiHeadCrossAttentionConfig::new(self.n_state, self.n_head).init(tensor_device_ref);
         let cross_attn_ln = nn::LayerNormConfig::new(self.n_state).init(tensor_device_ref);
 
         let mlp = MLPConfig::new(self.n_state).init(tensor_device_ref);
@@ -531,11 +541,15 @@ pub fn qkv_attention<B: Backend>(
     return o;
 }
 
-pub fn attn_decoder_mask<B: Backend>(seq_length: usize, tensor_device_ref: &B::Device) -> Tensor<B, 2> {
+pub fn attn_decoder_mask<B: Backend>(
+    seq_length: usize,
+    tensor_device_ref: &B::Device,
+) -> Tensor<B, 2> {
     let mut mask = Tensor::<B, 2>::zeros([seq_length, seq_length], &tensor_device_ref);
 
     for i in 0..(seq_length - 1) {
-        let values = Tensor::<B, 2>::zeros([1, seq_length - (i + 1)], &tensor_device_ref).add_scalar(NEG_INFINITY);
+        let values = Tensor::<B, 2>::zeros([1, seq_length - (i + 1)], &tensor_device_ref)
+            .add_scalar(NEG_INFINITY);
         mask = mask.slice_assign([i..i + 1, i + 1..seq_length], values);
     }
 
