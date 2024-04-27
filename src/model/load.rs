@@ -57,13 +57,13 @@ fn load_usize<B: Backend>(name: &str, path: &str) -> Result<usize, Box<dyn Error
 }
 
 fn load_linear<B: Backend>(path: &str) -> Result<nn::Linear<B>, Box<dyn Error>> {
-    let weight = Param::from_tensor(load_tensor::<B, 2>("weight", path)?);
-    let bias = Param::from_tensor(load_tensor::<B, 1>("bias", path)?);
+    let weight = load_tensor::<B, 2>("weight", path)?;
+    let bias = load_tensor::<B, 1>("bias", path).ok();
     let tensor_device_ref = weight.device();
 
     let record = nn::LinearRecord {
-        weight: weight,
-        bias: Some(bias),
+        weight: Param::from_tensor(weight),
+        bias: bias.map(|t| Param::from_tensor(t)),
     };
 
     let linear: nn::Linear<B> = nn::LinearConfig::new(3, 3)
@@ -100,7 +100,6 @@ fn load_multihead_self_attention<B: Backend>(
     let key = load_linear(&format!("{}/{}", path, "key"))?;
     let value = load_linear(&format!("{}/{}", path, "value"))?;
     let out = load_linear(&format!("{}/{}", path, "out"))?;
-
     let n_head: usize = load_usize::<B>("n_head", path)?;
 
     // Initializing attention block
@@ -307,9 +306,11 @@ fn load_text_decoder<B: Backend>(
 }
 
 pub fn load_whisper<B: Backend>(path: &str) -> Result<(Whisper<B>, WhisperConfig), Box<dyn Error>> {
+    println!("HELLO");
     let (encoder, encoder_config) = load_audio_encoder(&format!("{}/{}", path, "encoder"))?;
+    println!("HERE");
     let (decoder, decoder_config) = load_text_decoder(&format!("{}/{}", path, "decoder"))?;
-
+    println!("NOT HERE");
     let whisper = Whisper {
         encoder: encoder,
         decoder: decoder,

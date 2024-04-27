@@ -3,7 +3,7 @@ use burn::{
     backend::wgpu::{Wgpu, WgpuDevice},
     config::Config,
     module::Module,
-    record::{DefaultRecorder, Recorder, RecorderError},
+    record::{DefaultRecorder, FullPrecisionSettings, NamedMpkGzFileRecorder, Recorder, RecorderError},
     tensor::{self, backend::Backend, Data, Float, Int, Tensor},
 };
 use chrono::Local;
@@ -139,21 +139,6 @@ fn parse_args() -> (String, String, String, Language) {
     (model_name, wav_file, text_file, lang)
 }
 
-fn load_whisper_model_file<B: Backend>(
-    config: &WhisperConfig,
-    model_name: &str,
-    tensor_device_ref: &B::Device,
-) -> Result<Whisper<B>, RecorderError> {
-    println!("{}", format!("models/{}/{}", model_name, model_name));
-
-    DefaultRecorder::new()
-        .load(
-            format!("models/{}/{}", model_name, model_name).into(),
-            tensor_device_ref,
-        )
-        .map(|record| config.init(tensor_device_ref).load_record(record))
-}
-
 fn load_model<B: Backend>(
     model_name: &str,
     tensor_device_ref: &B::Device,
@@ -166,6 +151,7 @@ fn load_model<B: Backend>(
         }
     };
 
+    println!("{:?}", std::env::current_dir());
     let whisper_config =
         match WhisperConfig::load(&format!("models/{}/{}.cfg", model_name, model_name)) {
             Ok(config) => config,
@@ -176,14 +162,38 @@ fn load_model<B: Backend>(
         };
 
     println!("Loading model...");
-    let whisper: Whisper<B> =
-        match load_whisper_model_file(&whisper_config, model_name, tensor_device_ref) {
+    let whisper: Whisper<B> = {
+        println!("{}", format!("models/{}/{}", model_name, model_name));
+    
+        match NamedMpkGzFileRecorder::<FullPrecisionSettings>::new()
+            .load(
+                format!("models/{}/{}", model_name, model_name).into(),
+                tensor_device_ref,
+            )
+            .map(|record| whisper_config.init(tensor_device_ref).load_record(record)) {
             Ok(whisper_model) => whisper_model,
             Err(e) => {
                 eprintln!("Failed to load whisper model file: {}", e);
                 process::exit(1);
             }
-        };
+        }
+    };
+    // let whisper: Whisper<B> = {
+    //     println!("{}", format!("models/{}/{}", model_name, model_name));
+    
+    //     match DefaultRecorder::new()
+    //         .load(
+    //             format!("models/{}/{}", model_name, model_name).into(),
+    //             tensor_device_ref,
+    //         )
+    //         .map(|record| whisper_config.init(tensor_device_ref).load_record(record)) {
+    //         Ok(whisper_model) => whisper_model,
+    //         Err(e) => {
+    //             eprintln!("Failed to load whisper model file: {}", e);
+    //             process::exit(1);
+    //         }
+    //     }
+    // };
 
     let whisper = whisper.to_device(&tensor_device_ref);
 
