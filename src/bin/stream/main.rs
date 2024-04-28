@@ -3,7 +3,9 @@ use burn::{
     backend::wgpu::{Wgpu, WgpuDevice},
     config::Config,
     module::Module,
-    record::{DefaultRecorder, FullPrecisionSettings, NamedMpkGzFileRecorder, Recorder, RecorderError},
+    record::{
+        DefaultRecorder, FullPrecisionSettings, NamedMpkFileRecorder, Recorder, RecorderError,
+    },
     tensor::{self, backend::Backend, Data, Float, Int, Tensor},
 };
 use chrono::Local;
@@ -50,66 +52,105 @@ fn main() {
 
     let channel_count = audio_config.channels() as usize;
 
-    let audio_ring_buffer = Arc::new(Mutex::new(Vec::new()));
+    let audio_ring_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
     let audio_ring_buffer_2 = audio_ring_buffer.clone();
 
-    //loop to record the audio data forever (until the user stops the program)
-    std::thread::spawn(move || loop {
-        let data = record_audio(&audio_device, &audio_config, 1000).unwrap();
-        audio_ring_buffer.lock().unwrap().extend_from_slice(&data);
-        let max_len = data.len() * 4;
-        let data_len = data.len();
 
-        let mut audio_buffer = audio_ring_buffer.lock().unwrap();
-        if audio_buffer.len() > max_len {
-            let old_data_end = audio_buffer[audio_buffer.len() - data_len..].to_vec();
-            *audio_buffer = Vec::new();
-            audio_buffer.extend(old_data_end);
-            audio_buffer.extend(data);
-        }
-    });
 
-    // loop to process the audio data forever (until the user stops the program)
+
+    //record for 10 seconds for test
+    println!("recording...");
+    let data = record_audio(&audio_device, &audio_config, 5000).unwrap();
+    println!("{:?}", &data.len());
     println!("Transcribing audio...");
-    let file = Arc::new(Mutex::new(
-        OpenOptions::new()
-            .append(true)
-            .open("audio.txt")
-            .expect("Failed to open output.txt"),
-    ));
-    for (i, _) in iter::repeat(()).enumerate() {
-        std::thread::sleep(std::time::Duration::from_millis(2000));
-        let data = audio_ring_buffer_2.lock().unwrap().clone();
-        let audio_vectors: Vec<_> = data[..data.len() / channel_count as usize]
-            .iter()
-            .map(|v| *v as f32 / 32768.)
-            .collect();
+    // let data = audio_ring_buffer_2.lock().unwrap().clone();
+    let audio_vectors: Vec<_> = data[..data.len() / channel_count as usize]
+        .iter()
+        .map(|v| *v as f32 / 32768.)
+        .collect();
 
-        //RUN INFERENCE
-        let vector_length = audio_vectors.len();
-        let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, audio_vectors, 16000) {
-            Ok((text, tokens)) => (text, tokens),
-            Err(e) => {
-                eprintln!("Error during transcription: {}", e);
-                process::exit(1);
-            }
-        };
+    println!("{:?}", &audio_vectors.len());
 
-        let output = format!(
-            "{}, {}, {}, {}",
-            i,
-            text,
-            Local::now().format("%Y-%m-%d %H:%M:%S"),
-            vector_length
-        );
-        println!("{}", output);
-
-        let mut file = file.lock().unwrap();
-        writeln!(file, "{}\n", output).unwrap_or_else(|e| {
-            eprintln!("Error writing transcription file: {}", e);
+    //RUN INFERENCE
+    let vector_length = audio_vectors.len();
+    let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, audio_vectors, 16000, true) {
+        Ok((text, tokens)) => (text, tokens),
+        Err(e) => {
+            eprintln!("Error during transcription: {}", e);
             process::exit(1);
-        });
-    }
+        }
+    };
+
+    let output = format!(
+        "{}, {}, {}, {}",
+        0,
+        text,
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        vector_length
+    );
+    println!("{}", output);
+
+
+
+
+
+    // //loop to record the audio data forever (until the user stops the program)
+    // std::thread::spawn(move || loop {
+    //     let data = record_audio(&audio_device, &audio_config, 1000).unwrap();
+    //     audio_ring_buffer.lock().unwrap().extend_from_slice(&data);
+    //     let max_len = data.len() * 4;
+    //     let data_len = data.len();
+
+    //     let mut audio_buffer = audio_ring_buffer.lock().unwrap();
+    //     if audio_buffer.len() > max_len {
+    //         let old_data_end = audio_buffer[audio_buffer.len() - data_len..].to_vec();
+    //         *audio_buffer = Vec::new();
+    //         audio_buffer.extend(old_data_end);
+    //         audio_buffer.extend(data);
+    //     }
+    // });
+
+    // // loop to process the audio data forever (until the user stops the program)
+    // println!("Transcribing audio...");
+    // let file = Arc::new(Mutex::new(
+    //     OpenOptions::new()
+    //         .append(true)
+    //         .open("audio.txt")
+    //         .expect("Failed to open output.txt"),
+    // ));
+    // for (i, _) in iter::repeat(()).enumerate() {
+    //     std::thread::sleep(std::time::Duration::from_millis(2000));
+    //     let data = audio_ring_buffer_2.lock().unwrap().clone();
+    //     let audio_vectors: Vec<_> = data[..data.len() / channel_count as usize]
+    //         .iter()
+    //         .map(|v| *v as f32 / 32768.)
+    //         .collect();
+
+    //     //RUN INFERENCE
+    //     let vector_length = audio_vectors.len();
+    //     let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, audio_vectors, 16000) {
+    //         Ok((text, tokens)) => (text, tokens),
+    //         Err(e) => {
+    //             eprintln!("Error during transcription: {}", e);
+    //             process::exit(1);
+    //         }
+    //     };
+
+    //     let output = format!(
+    //         "{}, {}, {}, {}",
+    //         i,
+    //         text,
+    //         Local::now().format("%Y-%m-%d %H:%M:%S"),
+    //         vector_length
+    //     );
+    //     println!("{}", output);
+
+    //     let mut file = file.lock().unwrap();
+    //     writeln!(file, "{}\n", output).unwrap_or_else(|e| {
+    //         eprintln!("Error writing transcription file: {}", e);
+    //         process::exit(1);
+    //     });
+    // }
 }
 
 fn parse_args() -> (String, String, String, Language) {
@@ -163,14 +204,13 @@ fn load_model<B: Backend>(
 
     println!("Loading model...");
     let whisper: Whisper<B> = {
-        println!("{}", format!("models/{}/{}", model_name, model_name));
-    
-        match NamedMpkGzFileRecorder::<FullPrecisionSettings>::new()
+        match NamedMpkFileRecorder::<FullPrecisionSettings>::new()
             .load(
                 format!("models/{}/{}", model_name, model_name).into(),
                 tensor_device_ref,
             )
-            .map(|record| whisper_config.init(tensor_device_ref).load_record(record)) {
+            .map(|record| whisper_config.init(tensor_device_ref).load_record(record))
+        {
             Ok(whisper_model) => whisper_model,
             Err(e) => {
                 eprintln!("Failed to load whisper model file: {}", e);
@@ -178,22 +218,6 @@ fn load_model<B: Backend>(
             }
         }
     };
-    // let whisper: Whisper<B> = {
-    //     println!("{}", format!("models/{}/{}", model_name, model_name));
-    
-    //     match DefaultRecorder::new()
-    //         .load(
-    //             format!("models/{}/{}", model_name, model_name).into(),
-    //             tensor_device_ref,
-    //         )
-    //         .map(|record| whisper_config.init(tensor_device_ref).load_record(record)) {
-    //         Ok(whisper_model) => whisper_model,
-    //         Err(e) => {
-    //             eprintln!("Failed to load whisper model file: {}", e);
-    //             process::exit(1);
-    //         }
-    //     }
-    // };
 
     let whisper = whisper.to_device(&tensor_device_ref);
 

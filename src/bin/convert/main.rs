@@ -1,15 +1,15 @@
 use whisper_stream::model::{load::*, *};
 
 use burn::{
+    backend::wgpu::{Wgpu, WgpuDevice},
+    config::Config,
     module::Module,
+    record::{self, DefaultRecorder, Recorder},
     tensor::{
         self,
         backend::{self, Backend},
         Int, Tensor,
     },
-    config::Config,
-    record::{self, DefaultRecorder, Recorder},
-    backend::wgpu::{Wgpu, WgpuDevice}
 };
 
 fn save_whisper<B: Backend>(whisper: Whisper<B>, name: &str) -> Result<(), record::RecorderError> {
@@ -29,14 +29,14 @@ fn main() {
 
     let device = WgpuDevice::default();
 
-    let (whisper, whisper_config): (Whisper<Wgpu>, WhisperConfig) =
-        match load_whisper(&model_name) {
-            Ok(model) => model,
-            Err(e) => {
-                eprintln!("Error loading model {}: {}", model_name, e);
-                return;
-            }
-        };
+    let (whisper, whisper_config): (Whisper<Wgpu>, WhisperConfig) = match load_whisper(&model_name)
+    {
+        Ok(model) => model,
+        Err(e) => {
+            eprintln!("Error loading model {}: {}", model_name, e);
+            return;
+        }
+    };
 
     println!("Saving model...");
     if let Err(e) = save_whisper(whisper, &model_name) {

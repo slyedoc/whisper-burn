@@ -77,3 +77,21 @@
 
 5,  [Music], 2024-04-17 11:33:54, 48129
 
+0,  So,, 2024-04-26 22:29:26, 16043
+
+1,  Oh., 2024-04-26 22:29:32, 63830
+
+2,  Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax. Relax., 2024-04-26 22:30:10, 63830
+
+3,  [typing], 2024-04-26 22:30:14, 47787
+
+0,  y y, 2024-04-26 22:31:42, 16043
+
+1,  I want I want I want I want I want I want I want I want, 2024-04-26 22:32:12, 32086
+
+2,  [inaudible], 2024-04-26 22:32:14, 64172
+
+3,  [Music], 2024-04-26 22:32:16, 47616
+
+4,  [Music], 2024-04-26 22:32:19, 32086
+

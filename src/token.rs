@@ -11,10 +11,8 @@ pub struct Gpt2Tokenizer {
 
 impl Gpt2Tokenizer {
     pub fn new(model_name: &str) -> Result<Self> {
-        //let mut tokenizer = tokenizers::Tokenizer::from_pretrained("gpt2", None)?;
         let mut tokenizer =
             tokenizers::Tokenizer::from_file(&format!("models/{}/tokenizer.json", &model_name))?;
-        //tokenizer.add_special_tokens(&construct_special_tokens());
 
         Ok(Self { tokenizer })
     }

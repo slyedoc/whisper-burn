@@ -22,11 +22,12 @@ pub fn waveform_to_text<B: Backend>(
     lang: Language,
     waveform: Vec<f32>,
     sample_rate: usize,
+    streaming_mode: bool
 ) -> token::Result<(String, Vec<usize>)> {
     let device = whisper.devices()[0].clone();
 
     let n_ctx_max_encoder = whisper.encoder_ctx_size();
-    let padding = 10;
+    let padding = 30; //ADJUST THIS IF CHINKS ARE REPEATING THEMSELVES ENDLESSLY
     let n_waveform_samples_per_window = max_waveform_samples(n_ctx_max_encoder - padding);
 
     let mel_iter =
@@ -47,7 +48,7 @@ pub fn waveform_to_text<B: Backend>(
         //println!("Prev tokens: {:?} {}", prev_normal_tokens, bpe.decode(&prev_normal_tokens[..], false)?);
 
         let (new_text, new_tokens) =
-            mels_to_text(whisper, bpe, lang, mel, &prev_normal_tokens[..], padding)?;
+            mels_to_text(whisper, bpe, lang, mel, &prev_normal_tokens[..], padding, streaming_mode)?;
 
         if let Some((prev_index, curr_index)) =
             find_chunk_overlap(&tokens[..], &new_tokens[..], 40, 3)
@@ -147,6 +148,7 @@ fn mels_to_text<B: Backend>(
     mels: Tensor<B, 3>,
     prev_nonspecial_tokens: &[usize],
     padding: usize,
+    streaming_mode: bool
 ) -> token::Result<(String, Vec<usize>)> {
     let device = mels.device();
 
@@ -179,56 +181,35 @@ fn mels_to_text<B: Backend>(
     let end_token = bpe.special_token(SpecialToken::EndofText).unwrap();
     let notimestamp = bpe.special_token(SpecialToken::NoTimeStamps).unwrap();
 
-    // including the prev tokens causes whisper to hallucinate, repeating itself and failing to determine end of text
-    /*let mut tokens: Vec<usize> = iter::once(start_of_prev_token)
-    .chain(prev_normal_tokens.into_iter().cloned())
-    .chain(iter::once(start_token))
-    .chain(iter::once(transcription_token))
-    .chain(iter::once(bpe.special_token(SpecialToken::Timestamp(0.0)).unwrap()))
-    .collect();*/
-
-    let mut initial_tokens = if prev_nonspecial_tokens.len() > 0 {
-        iter::once(start_of_prev_token)
-            .chain(prev_nonspecial_tokens.iter().cloned())
-            .collect()
-    } else {
-        Vec::new()
-    };
+    println!("start_token: {:?}", start_token);
+    println!("transcription_token: {:?}", transcription_token);
+    println!("start_of_prev_token: {:?}", start_of_prev_token);
+    println!("lang_token: {:?}", lang_token);
+    println!("first_timestamp_token: {:?}", first_timestamp_token);
+    println!("end_token: {:?}", end_token);
+    println!("notimestamp: {:?}", notimestamp);
 
     let mut initial_tokens = Vec::new();
 
     initial_tokens.extend([start_token, lang_token, transcription_token, notimestamp]);
 
-    let initial_tokens = initial_tokens
-        .into_iter()
-        .map(|tok| BeamSearchToken {
-            token: tok,
-            log_prob: 0.0,
-        })
-        .collect();
-
-    /*let initial_tokens: Vec<_> = [start_token, lang_token, transcription_token, notimestamp].into_iter().map(|tok| BeamSearchToken {
-        token: tok,
-        logit: 0.0,
-    }).collect();*/
+    println!("{:?}", &initial_tokens);
 
     type BeamNode = beam::BeamNode<BeamSearchToken>;
-
     let initial_tokens = BeamNode {
-        seq: initial_tokens,
+        seq: initial_tokens
+            .into_iter()
+            .map(|tok| BeamSearchToken {
+                token: tok,
+                log_prob: 0.0,
+            })
+            .collect(),
         log_prob: 0.0,
     };
 
     let encoder_output = whisper.forward_encoder(mels);
 
     let neg_infty = -f32::INFINITY;
-    /*let mut nonspecial_mask: Vec<f32> = (0..bpe.vocab_size()).into_iter().map(|tok| /*if bpe.is_special(tok) {neg_infty} else {0.0}*/ 0.0).collect();
-    //nonspecial_mask[end_token] = neg_infty;
-    let nonspecial_mask = Tensor::from_floats(Data::new(
-        nonspecial_mask,
-        [bpe.vocab_size()].into(),
-    )).to_device(&device);*/
-
     let beam_size = 5;
     let max_depth = 100;
 
@@ -327,7 +308,7 @@ fn mels_to_text<B: Backend>(
         continuations
     };
 
-    let tokens: Vec<_> = beam::beam_search(
+    let mut tokens: Vec<_> = beam::beam_search(
         vec![initial_tokens],
         beamsearch_next,
         beamsearch_is_finished,
@@ -337,6 +318,8 @@ fn mels_to_text<B: Backend>(
     .into_iter()
     .map(|btok| btok.token)
     .collect();
+
+    println!("{:?}", &tokens);
 
     /*let mut tokens: Vec<_> = [start_token, lang_token, transcription_token, notimestamp].to_vec();
 
