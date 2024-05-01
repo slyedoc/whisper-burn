@@ -32,9 +32,11 @@ use whisper_stream::{
     transcribe::waveform_to_text,
 };
 use webrtc_vad::{Vad, VadMode, SampleRate};
-use dasp::signal::{self, Signal};
-use dasp::interpolate::linear::Linear;
-use dasp::ring_buffer::Bounded;
+use rtrb::{Consumer, RingBuffer};
+
+const BUFFER_FRAME_COUNT: usize = 30;
+const MINIMUM_SAMPLE_COUNT: usize = 1600 * 4; // @ 16kHz = 400ms
+
 fn main() {
     //COMMAND LINE
     let (model_name, wav_file, text_file, lang) = parse_args();
@@ -145,13 +147,21 @@ fn record_audio(
     let device = host.default_input_device().expect("Failed to get default input device");
     let config = device.default_input_config().expect("Failed to get default input config");
     let sample_rate = config.sample_rate().0 as f32;
+    let mut vad = Vad::new_with_rate(webrtc_vad::SampleRate::Rate16kHz);
+    vad.set_mode(VadMode::VeryAggressive);
+
 
     // Create a stream with the default input format
+    let (mut producer, mut consumer) = RingBuffer::<i16>::new(1024);
     let stream = device.build_input_stream(
         &config.config(),
         move |data: &[f32], _: &cpal::InputCallbackInfo| {
-            handle_input_data(data, &sample_rate);
-        },
+            let data_16k = normalize_audio_data_to_16k(data, &sample_rate);
+            let vad_data_i16_16k: Vec<i16> = data_16k.iter().map(|x| (*x * 32767.0) as i16).collect();
+            for sample in vad_data_i16_16k {
+                producer.push(sample).expect("Failed to push sample to ring buffer");
+            }
+        },  
         move |err| eprintln!("Error: {}", err),
         None
     ).expect("Failed to build input stream");
@@ -160,52 +170,96 @@ fn record_audio(
     stream.play().expect("Failed to play stream");
 
 
+    let mut unactive_count = 0;
+    let mut speaking = false;
+    let mut speech_segment = Vec::<i16>::new();
+    /*
+        TODO This is a dirty hack and should be changed to an algorithm
+        that transcribes in short segments and also concatenates those segments 
+        checking the results against one another, the choice of length of small vs 
+        long segment will be hard to figure out
+    */
+    loop {
+        if consumer.slots() > 160 {
+            let mut audio_frame = vec![0i16; 160];
+            for _ in 0..160 {
+                match consumer.pop() {
+                    Ok(value) => audio_frame.push(value),
+                    Err(err) => {
+                        println!("Error: {}", err);
+                        break;
+                    },
+                }
+            }
+            let speech_active = vad.is_voice_segment(&audio_frame).expect("Failed to check voice segment");
 
+            println!("{:?}", &speech_active);
+            match speech_active {
+                true => {
+                    match speaking {
+                        true => {
+                            // Active speech detected and already speaking, do nothing
+                            speech_segment.extend(audio_frame);
+                        },
+                        false => {
+                            // Active speech and not already speaking
+                            speaking = true;
+                            unactive_count = 0;
+                            speech_segment.extend(audio_frame);
+                        }
+                    }
+                },
+                false => {
+                    match speaking {
+                        true => {
+                            // Voice is not active and has been speaking
+                            if unactive_count > BUFFER_FRAME_COUNT {
+                                /* 
+                                    If more than 20 frames of unactive speech
+                                    then consider end of segment and 
+                                    send over the channel to transcribing service
+                                */ 
+                                speaking = false;
+                                if speech_segment.len() > MINIMUM_SAMPLE_COUNT {
+                                    //HERE WE SHOULD RUN INFERENCE
+                                }
+                                speech_segment.clear();
+                            } else {
+                                unactive_count += 1;
+                            }
+                        },
+                        false => {
+                            // Voice is not active and we are not speaking
+                            // Do nothing
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
-    // let mut is_speech = false;
-    // let stream = audio_device.build_input_stream(
-    //     &audio_config.config(),
-    //     move |data: &[f32], _: &cpal::InputCallbackInfo| {
-    //         println!("{:?}", &data);
-    //         let (lock, cvar) = &*audio_queue_and_notifier;
-    //         let mut writer = lock.lock().unwrap();
+fn normalize_audio_data_to_16k(input_data: &[f32], input_sample_rate: &f32) -> Vec<f32> {
+    let target_sample_rate = 16000f32;
+    let resample_ratio = target_sample_rate / input_sample_rate;
+    let mut resampled_data = Vec::new();
+    for i in 0..(input_data.len() as f32 * resample_ratio) as usize {
+        let x = i as f32 / resample_ratio;
+        let x1 = x.floor() as usize;
+        let x2 = x.ceil() as usize;
 
-    //         // Clone and convert data to i16 for VAD
-    //         let vad_data_i16: Vec<i16> = data.iter().map(|x| *x as i16).collect();
-    //         let mut vad = Vad::new_with_rate_and_mode(SampleRate::Rate48kHz, VadMode::Quality);
-    //         let is_speech_segment_result = vad.is_voice_segment(&vad_data_i16);
-    //         let is_speech_segment = match is_speech_segment_result {
-    //             Ok(s) => s,
-    //             Err(e) => {
-    //                 eprintln!("Failed to check if voice segment: {:?}", e);
-    //                 return;
-    //             }
-    //         };
+        if x2 >= input_data.len() {
+            break;
+        }
 
-    //         //println!("{:?}", is_speech_segment);
-    //         if is_speech_segment {
-    //             if is_speech {
-    //                 for &sample in data {
-    //                     writer.push_back(sample);
-    //                 }
-    //                 cvar.notify_one(); // Notify the inference thread that there's data
-    //             } else {
-    //                 is_speech = true;
-    //             }
-    //         } else if is_speech {
-    //             is_speech = false;
-    //         }
-    //     },
-    //     move |err| {
-    //         eprintln!("an error occurred on stream: {}", err);
-    //     },
-    //     None,
-    // ).expect("Failed to build input stream.");
-    // stream.play();
-    // loop {
-    //     println!("hello from loop2");
-    //     std::thread::sleep(std::time::Duration::from_millis(1000));
-    // }
+        let y1 = input_data[x1];
+        let y2 = input_data[x2];
+
+        let y = y1 + (y2 - y1) * (x - x1 as f32);
+        resampled_data.push(y);
+    }
+
+    resampled_data
 }
 
 fn process_audio_data(
@@ -252,27 +306,4 @@ fn process_audio_data(
         audio_data_vectors.drain(0..processed_len);    
         //audio_data_vectors.shrink_to_fit(); //REVISIT IF THIS IS NECESSARY
     }
-}
-
-fn handle_input_data(input_data: &[f32], sample_rate: &f32) {
-    // Create a signal from the input data
-    let signal = signal::from_iter(input_data.iter().cloned());
-
-    // Create a linear interpolator
-    let interpolator = Linear::new(0.0, 0.0);
-
-    // Create a source from the signal and the interpolator
-    let mut source = signal.from_hz_to_samples(sample_rate).upsample(interpolator);
-
-    // Create a ring buffer
-    let mut ring_buffer = Bounded::from(vec![0i16; 16000]);
-
-    // Fill the ring buffer with samples from the source
-    for _ in 0..16000 {
-        let sample = source.next();
-        let sample_i16 = i16::from_sample(sample);
-        ring_buffer.push(sample_i16);
-    }
-
-    // Now, `ring_buffer` contains `i16` samples at a 16 kHz sample rate
 }
