@@ -22,12 +22,12 @@ pub fn waveform_to_text<B: Backend>(
     lang: Language,
     waveform: Vec<f32>,
     sample_rate: usize,
-    streaming_mode: bool
+    streaming_mode: bool,
 ) -> token::Result<(String, Vec<usize>)> {
     let device = whisper.devices()[0].clone();
 
     let n_ctx_max_encoder = whisper.encoder_ctx_size();
-    let padding = 30; //ADJUST THIS IF CHINKS ARE REPEATING THEMSELVES ENDLESSLY
+    let padding = 100; //ADJUST THIS IF CHINKS ARE REPEATING THEMSELVES ENDLESSLY
     let n_waveform_samples_per_window = max_waveform_samples(n_ctx_max_encoder - padding);
 
     let mel_iter =
@@ -47,8 +47,15 @@ pub fn waveform_to_text<B: Backend>(
         prev_normal_tokens.reverse();
         //println!("Prev tokens: {:?} {}", prev_normal_tokens, bpe.decode(&prev_normal_tokens[..], false)?);
 
-        let (new_text, new_tokens) =
-            mels_to_text(whisper, bpe, lang, mel, &prev_normal_tokens[..], padding, streaming_mode)?;
+        let (new_text, new_tokens) = mels_to_text(
+            whisper,
+            bpe,
+            lang,
+            mel,
+            &prev_normal_tokens[..],
+            padding,
+            streaming_mode,
+        )?;
 
         if let Some((prev_index, curr_index)) =
             find_chunk_overlap(&tokens[..], &new_tokens[..], 40, 3)
@@ -126,8 +133,7 @@ fn waveform_to_mel_tensor<B: Backend>(
         let waveform = Tensor::from_floats(
             tensor::Data::new(slice.to_vec(), [slice.len()].into()),
             &device,
-        )
-        .to_device(&device);
+        );
 
         let mels = prep_audio(waveform.unsqueeze(), sample_rate as f64);
 
@@ -148,7 +154,7 @@ fn mels_to_text<B: Backend>(
     mels: Tensor<B, 3>,
     prev_nonspecial_tokens: &[usize],
     padding: usize,
-    streaming_mode: bool
+    streaming_mode: bool,
 ) -> token::Result<(String, Vec<usize>)> {
     let device = mels.device();
 
@@ -181,19 +187,19 @@ fn mels_to_text<B: Backend>(
     let end_token = bpe.special_token(SpecialToken::EndofText).unwrap();
     let notimestamp = bpe.special_token(SpecialToken::NoTimeStamps).unwrap();
 
-    println!("start_token: {:?}", start_token);
-    println!("transcription_token: {:?}", transcription_token);
-    println!("start_of_prev_token: {:?}", start_of_prev_token);
-    println!("lang_token: {:?}", lang_token);
-    println!("first_timestamp_token: {:?}", first_timestamp_token);
-    println!("end_token: {:?}", end_token);
-    println!("notimestamp: {:?}", notimestamp);
+    // println!("start_token: {:?}", start_token);
+    // println!("transcription_token: {:?}", transcription_token);
+    // println!("start_of_prev_token: {:?}", start_of_prev_token);
+    // println!("lang_token: {:?}", lang_token);
+    // println!("first_timestamp_token: {:?}", first_timestamp_token);
+    // println!("end_token: {:?}", end_token);
+    // println!("notimestamp: {:?}", notimestamp);
 
     let mut initial_tokens = Vec::new();
 
     initial_tokens.extend([start_token, lang_token, transcription_token, notimestamp]);
 
-    println!("{:?}", &initial_tokens);
+    // println!("{:?}", &initial_tokens);
 
     type BeamNode = beam::BeamNode<BeamSearchToken>;
     let initial_tokens = BeamNode {
@@ -237,8 +243,7 @@ fn mels_to_text<B: Backend>(
     let special_tokens_maskout = Tensor::from_data(
         Data::new(special_tokens_maskout, [vocab_size].into()).convert(),
         &device,
-    )
-    .to_device(&device);
+    );
 
     let beamsearch_next = |beams: &[BeamNode]| {
         // convert tokens into tensor
@@ -260,8 +265,7 @@ fn mels_to_text<B: Backend>(
                 [beams.len(), max_seq_len].into(),
             )),
             &device,
-        )
-        .to_device(&device);
+        );
 
         let logits =
             whisper.forward_decoder(token_tensor, encoder_output.clone().repeat(0, beams.len()));
@@ -319,7 +323,7 @@ fn mels_to_text<B: Backend>(
     .map(|btok| btok.token)
     .collect();
 
-    println!("{:?}", &tokens);
+    // println!("{:?}", &tokens);
 
     /*let mut tokens: Vec<_> = [start_token, lang_token, transcription_token, notimestamp].to_vec();
 
