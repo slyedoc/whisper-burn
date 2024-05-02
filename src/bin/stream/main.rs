@@ -20,6 +20,7 @@ use std::{
     io::Write,
     iter, process,
     sync::{Arc, Mutex, Condvar},
+    time::Instant
 };
 use strum::IntoEnumIterator;
 use whisper_stream::{
@@ -43,6 +44,7 @@ fn main() {
 
     let tensor_device = WgpuDevice::default();
     let (bpe, whisper_config, whisper) = load_model::<Wgpu>(&model_name, &tensor_device);
+    println!("Model {} loaded successfully", &model_name);
 
     let file = Arc::new(Mutex::new(
         OpenOptions::new()
@@ -198,6 +200,7 @@ fn process_audio_data(
 
         //RUN INFERENCE
         let speech_segment_f32: Vec<f32> = audio_data_vectors.clone().into_iter().map(|x| x as f32 / 32767.0).collect();
+        let start_time = Instant::now(); // Capture the start time
         let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, speech_segment_f32, 16000, true) {
             Ok((text, tokens)) => (text, tokens),
             Err(e) => {
@@ -205,21 +208,14 @@ fn process_audio_data(
                 process::exit(1);
             }
         };
+        println!("\nText: {}, Iteration: {}, Time:{:?}", text, i, start_time.elapsed());
+        
 
-        let output = format!(
-            "{}, {}, {}, {}",
-            i,
-            text,
-            &processed_len,
-            Local::now().format("%Y-%m-%d %H:%M:%S"),
-        );
-        println!("{}", output);
-
-        let mut file = file.lock().unwrap();
-        writeln!(file, "{}\n", output).unwrap_or_else(|e| {
-            eprintln!("Error writing transcription file: {}", e);
-            process::exit(1);
-        });
+        // let mut file = file.lock().unwrap();
+        // writeln!(file, "{}\n", output).unwrap_or_else(|e| {
+        //     eprintln!("Error writing transcription file: {}", e);
+        //     process::exit(1);
+        // });
 
         // Remove the processed data from the buffer
         audio_data_vectors.drain(0..processed_len);    
