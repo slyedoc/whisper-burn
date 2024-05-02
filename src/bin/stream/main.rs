@@ -40,7 +40,7 @@ const MINIMUM_SAMPLE_COUNT: usize = 1600 * 4; // @ 16kHz = 400ms
 
 fn main() {
     //COMMAND LINE
-    let (model_name, wav_file, text_file, lang) = parse_args();
+    let (model_name, lang) = parse_args();
 
     let tensor_device = WgpuDevice::default();
     let (bpe, whisper_config, whisper) = load_model::<Wgpu>(&model_name, &tensor_device);
@@ -72,22 +72,19 @@ fn main() {
     }
 }
 
-fn parse_args() -> (String, String, String, Language) {
+fn parse_args() -> (String, Language) {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 5 {
+    if args.len() < 2 {
         eprintln!(
-            "Usage: {} <model name> <audio file> <lang> <transcription file>",
+            "Usage: {} <model name> <lang>",
             args[0]
         );
         process::exit(1);
     }
 
     let model_name = args[1].clone();
-    let wav_file = args[2].clone();
-    let text_file = args[4].clone();
-
-    let lang_str = &args[3];
+    let lang_str = args[2].clone();
     let lang = match Language::iter().find(|lang| lang.as_str() == lang_str) {
         Some(lang) => lang,
         None => {
@@ -96,7 +93,7 @@ fn parse_args() -> (String, String, String, Language) {
         }
     };
 
-    (model_name, wav_file, text_file, lang)
+    (model_name, lang)
 }
 
 fn load_model<B: Backend>(
