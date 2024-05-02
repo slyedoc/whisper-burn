@@ -19,7 +19,7 @@ use std::{
     io,
     io::Write,
     iter, process,
-    sync::{Arc, Mutex, Condvar},
+    sync::{Arc, Mutex, Condvar, mpsc},
     time::Instant
 };
 use strum::IntoEnumIterator;
@@ -53,18 +53,17 @@ fn main() {
             .expect("Failed to open output.txt"),
     ));
 
-    let audio_queue_and_notifier = Arc::new((Mutex::new(VecDeque::<i16>::new()), Condvar::new()));
+    let (sender, receiver) = mpsc::channel();
 
 
-    let audio_queue_and_notifier1 = Arc::clone(&audio_queue_and_notifier);
+    let sender1 = sender.clone();
     std::thread::spawn(move || {
-        record_audio(audio_queue_and_notifier1)
+        record_audio(sender1)
     });
 
 
-    let audio_queue_and_notifier2 = Arc::clone(&audio_queue_and_notifier);
     std::thread::spawn(move || {
-        process_audio_data(audio_queue_and_notifier2, file, whisper, bpe, lang);
+        process_audio_data(receiver, file, whisper, bpe, lang);
     });
 
     loop {
@@ -163,36 +162,39 @@ fn normalize_audio_data_to_16k(input_data: &[f32], input_sample_rate: &f32) -> V
 }
 
 fn process_audio_data(
-    audio_queue_and_notifier: Arc<(Mutex<VecDeque<i16>>, Condvar)>,
+    receiver: mpsc::Receiver<Vec<i16>>,
     file: Arc<Mutex<File>>,
     whisper: Whisper<Wgpu>,
     bpe: Gpt2Tokenizer,
     lang: Language,
 ) {      
     for (i, _) in iter::repeat(()).enumerate() {
-        let (lock, cvar) = &*audio_queue_and_notifier;
-        let mut audio_data_vectors = lock.lock().unwrap();
-        while audio_data_vectors.is_empty() {
-            audio_data_vectors = cvar.wait(audio_data_vectors).unwrap();
-        }
+        // Wait for data from the receiver
+        let audio_data_vectors = match receiver.recv() {
+            Ok(data) => data,
+            Err(e) => {
+                eprintln!("Error receiving data: {}", e);
+                process::exit(1);
+            }
+        };
         let processed_len = audio_data_vectors.len();
 
 
         //LEAVING THIS FOR NOW AS THEIR IS STILL A BIT OF AUDIO DISTORTION AND WANT TO DEBUG LATER
-        // let spec = hound::WavSpec {
-        //     channels: 1,
-        //     sample_rate: 16000, // adjust this to match your audio data
-        //     bits_per_sample: 16, // adjust this to match your audio data
-        //     sample_format: hound::SampleFormat::Int,
-        // };
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 16000, // adjust this to match your audio data
+            bits_per_sample: 16, // adjust this to match your audio data
+            sample_format: hound::SampleFormat::Int,
+        };
         
-        // let mut writer = hound::WavWriter::create(format!("output_{}.wav", i), spec).unwrap();
-        // let mut audio_data_vectors_clone_for_inference2: Vec<i16> = audio_data_vectors.clone().into();
-        // for sample in audio_data_vectors_clone_for_inference2 {
-        //     writer.write_sample(sample).unwrap(); // cast to i16, adjust this to match your audio data
-        // }
+        let mut writer = hound::WavWriter::create(format!("output_{}.wav", i), spec).unwrap();
+        let mut audio_data_vectors_clone_for_inference2: Vec<i16> = audio_data_vectors.clone().into();
+        for sample in audio_data_vectors_clone_for_inference2 {
+            writer.write_sample(sample).unwrap(); // cast to i16, adjust this to match your audio data
+        }
         
-        // writer.finalize().unwrap();
+        writer.finalize().unwrap();
 
 
         //RUN INFERENCE
@@ -206,30 +208,16 @@ fn process_audio_data(
             }
         };
         println!("\nText: {}, Iteration: {}, Time:{:?}", text, i, start_time.elapsed());
-        
-
-        // let mut file = file.lock().unwrap();
-        // writeln!(file, "{}\n", output).unwrap_or_else(|e| {
-        //     eprintln!("Error writing transcription file: {}", e);
-        //     process::exit(1);
-        // });
-
-        // Remove the processed data from the buffer
-        audio_data_vectors.drain(0..processed_len);    
-        //audio_data_vectors.shrink_to_fit(); //REVISIT IF THIS IS NECESSARY
     }
 }
 
-fn record_audio(
-    audio_queue_and_notifier: Arc<(Mutex<VecDeque<i16>>, Condvar)>,
-) {
+fn record_audio(sender: mpsc::Sender<Vec<i16>>) {
     let host = cpal::default_host();
     let device = host.default_input_device().expect("Failed to get default input device");
     let config = device.default_input_config().expect("Failed to get default input config");
     let sample_rate = config.sample_rate().0 as f32;
     let mut vad = Vad::new_with_rate(webrtc_vad::SampleRate::Rate16kHz);
     vad.set_mode(VadMode::Aggressive);
-    let (lock, cvar) = &*audio_queue_and_notifier;
 
     // Create a stream with the default input format
     let (mut producer, mut consumer) = RingBuffer::<i16>::new(16384);
@@ -286,12 +274,8 @@ fn record_audio(
                         */ 
                         speaking = false;
                         if speech_segment.len() > MINIMUM_SAMPLE_COUNT {
-                            //HERE WE SHOULD RUN INFERENCE
-                            let mut queue = lock.lock().unwrap();
-                            for sample in speech_segment.clone() {
-                                queue.push_back(sample);
-                            }
-                            cvar.notify_all();
+                            //send data to the inference thread
+                            sender.send(speech_segment.clone()).expect("Failed to send data");
                         }
                         speech_segment.clear();
                     } else {
