@@ -51,7 +51,7 @@ fn main() {
             .expect("Failed to open output.txt"),
     ));
 
-    let audio_queue_and_notifier = Arc::new((Mutex::new(VecDeque::<f32>::new()), Condvar::new()));
+    let audio_queue_and_notifier = Arc::new((Mutex::new(VecDeque::<i16>::new()), Condvar::new()));
 
 
     let audio_queue_and_notifier1 = Arc::clone(&audio_queue_and_notifier);
@@ -164,7 +164,7 @@ fn normalize_audio_data_to_16k(input_data: &[f32], input_sample_rate: &f32) -> V
 }
 
 fn process_audio_data(
-    audio_queue_and_notifier: Arc<(Mutex<VecDeque<f32>>, Condvar)>,
+    audio_queue_and_notifier: Arc<(Mutex<VecDeque<i16>>, Condvar)>,
     file: Arc<Mutex<File>>,
     whisper: Whisper<Wgpu>,
     bpe: Gpt2Tokenizer,
@@ -177,10 +177,28 @@ fn process_audio_data(
             audio_data_vectors = cvar.wait(audio_data_vectors).unwrap();
         }
         let processed_len = audio_data_vectors.len();
-        let mut audio_data_vectors_clone_for_inference: Vec<f32> = audio_data_vectors.clone().into();
+
+
+        //LEAVING THIS FOR NOW AS THEIR IS STILL A BIT OF AUDIO DISTORTION AND WANT TO DEBUG LATER
+        // let spec = hound::WavSpec {
+        //     channels: 1,
+        //     sample_rate: 16000, // adjust this to match your audio data
+        //     bits_per_sample: 16, // adjust this to match your audio data
+        //     sample_format: hound::SampleFormat::Int,
+        // };
+        
+        // let mut writer = hound::WavWriter::create(format!("output_{}.wav", i), spec).unwrap();
+        // let mut audio_data_vectors_clone_for_inference2: Vec<i16> = audio_data_vectors.clone().into();
+        // for sample in audio_data_vectors_clone_for_inference2 {
+        //     writer.write_sample(sample).unwrap(); // cast to i16, adjust this to match your audio data
+        // }
+        
+        // writer.finalize().unwrap();
+
 
         //RUN INFERENCE
-        let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, audio_data_vectors_clone_for_inference, 16000, true) {
+        let speech_segment_f32: Vec<f32> = audio_data_vectors.clone().into_iter().map(|x| x as f32 / 32767.0).collect();
+        let (text, tokens) = match waveform_to_text(&whisper, &bpe, lang, speech_segment_f32, 16000, true) {
             Ok((text, tokens)) => (text, tokens),
             Err(e) => {
                 eprintln!("Error during transcription: {}", e);
@@ -210,7 +228,7 @@ fn process_audio_data(
 }
 
 fn record_audio(
-    audio_queue_and_notifier: Arc<(Mutex<VecDeque<f32>>, Condvar)>,
+    audio_queue_and_notifier: Arc<(Mutex<VecDeque<i16>>, Condvar)>,
 ) {
     let host = cpal::default_host();
     let device = host.default_input_device().expect("Failed to get default input device");
@@ -221,7 +239,7 @@ fn record_audio(
     let (lock, cvar) = &*audio_queue_and_notifier;
 
     // Create a stream with the default input format
-    let (mut producer, mut consumer) = RingBuffer::<i16>::new(4096);
+    let (mut producer, mut consumer) = RingBuffer::<i16>::new(16384);
     let stream = device.build_input_stream(
         &config.config(),
         move |data: &[f32], _: &cpal::InputCallbackInfo| {
@@ -229,13 +247,11 @@ fn record_audio(
             let vad_data_i16_16k: Vec<i16> = data_16k.iter().map(|x| (*x * 32767.0) as i16).collect();
             for sample in vad_data_i16_16k {
                 producer.push(sample).expect("Failed to push sample to ring buffer");
-                writer16k_clone.lock().unwrap().write_sample(sample).unwrap(); // Write the sample to the WAV file
             }
         },  
         move |err| eprintln!("Error: {}", err),
         None
     ).expect("Failed to build input stream");
-
     // Play the stream
     stream.play().expect("Failed to play stream");
 
@@ -271,19 +287,17 @@ fn record_audio(
                 } else {
                     if unactive_count > BUFFER_FRAME_COUNT {
                         /* 
-                            If more than 20 frames of unactive speech
+                            If more than 30 frames of unactive speech
                             then consider end of segment and 
                             send over the channel to transcribing service
                         */ 
                         speaking = false;
                         if speech_segment.len() > MINIMUM_SAMPLE_COUNT {
                             //HERE WE SHOULD RUN INFERENCE
-                            let speech_segment_f32: Vec<f32> = speech_segment.iter().map(|x| *x as f32 / 32767.0).collect();
                             let mut queue = lock.lock().unwrap();
-                            for sample in speech_segment_f32 {
+                            for sample in speech_segment.clone() {
                                 queue.push_back(sample);
                             }
-                            println!("notifying inference thread");
                             cvar.notify_all();
                         }
                         speech_segment.clear();
