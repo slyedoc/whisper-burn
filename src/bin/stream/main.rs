@@ -35,7 +35,7 @@ use whisper_stream::{
 use webrtc_vad::{Vad, VadMode, SampleRate};
 use rtrb::{Consumer, RingBuffer};
 
-const BUFFER_FRAME_COUNT: usize = 30;
+const BUFFER_FRAME_COUNT: usize = 150;
 const MINIMUM_SAMPLE_COUNT: usize = 1600 * 4; // @ 16kHz = 400ms
 
 fn main() {
@@ -217,7 +217,7 @@ fn record_audio(sender: mpsc::Sender<Vec<i16>>) {
     let config = device.default_input_config().expect("Failed to get default input config");
     let sample_rate = config.sample_rate().0 as f32;
     let mut vad = Vad::new_with_rate(webrtc_vad::SampleRate::Rate16kHz);
-    vad.set_mode(VadMode::VeryAggressive);
+    vad.set_mode(VadMode::Quality);
 
     // Create a stream with the default input format
     let (mut producer, mut consumer) = RingBuffer::<i16>::new(16384);

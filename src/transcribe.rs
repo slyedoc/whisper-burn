@@ -68,7 +68,6 @@ pub fn waveform_to_text<B: Backend>(
 
     //IN THE FOLLOWING CODE, WE WILL PRETTY MUCH ALWAYS ITERATE JUST ONCE, SINCE WE ARE SENDING SUCH SHORT CLIPS OF AUDIO. THIS MEANS FIND CHUNK OVERLAP IS NOT NECESSARY BUT CAN LEAVE IT FOR THE FUTURE
     for (i, mel) in mel_iter.enumerate() {
-        println!("MEL DIMS: {:?}", &mel.dims());
         let (new_text, new_tokens) = mels_to_text(
             whisper,
             bpe,
@@ -77,7 +76,6 @@ pub fn waveform_to_text<B: Backend>(
             padding,
             streaming_mode,
         )?;
-        //println!("NEW TEXT: {:?}, NEW TOKENS: {:?}", &new_text, &new_tokens);
 
         if let Some((prev_index, curr_index)) =
             find_chunk_overlap(&tokens[..], &new_tokens[..], 40, 3)
@@ -116,10 +114,8 @@ fn waveform_to_mel_tensor<B: Backend>(
             tensor::Data::new(slice.to_vec(), [slice.len()].into()),
             &device,
         );
-        println!("WAQVEFORM LEN: {:?}", &waveform.dims());
 
         let mels = prep_audio(waveform.unsqueeze(), sample_rate as f64);
-        println!("MELS: {:?}", &mels);
 
         mels
     })
@@ -173,8 +169,6 @@ fn mels_to_text<B: Backend>(
 
     let mut initial_tokens = Vec::new();
     initial_tokens.extend([start_token, lang_token, transcription_token, notimestamp]);
-
-    println!("{:?}", &initial_tokens);
 
     type BeamNode = beam::BeamNode<BeamSearchToken>;
     let initial_tokens = BeamNode {
@@ -296,7 +290,6 @@ fn mels_to_text<B: Backend>(
     .map(|btok| btok.token)
     .collect();
 
-    println!("TOKENS RIGHT BEFORE DECODING: {:?}", &tokens);
     let text = bpe.decode(&tokens[..], false)?;
 
     return Ok((text, tokens));
