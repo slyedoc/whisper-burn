@@ -28,7 +28,7 @@ pub fn waveform_to_text<B: Backend>(
     let device = whisper.devices()[0].clone();
 
     let n_ctx_max_encoder = whisper.encoder_ctx_size();
-    let padding = 30; //ADJUST THIS IF CHINKS ARE REPEATING THEMSELVES ENDLESSLY
+    let padding = 200; //ADJUST THIS IF CHINKS ARE REPEATING THEMSELVES ENDLESSLY
     let n_waveform_samples_per_window = max_waveform_samples(n_ctx_max_encoder - padding);
 
     let mel_iter =

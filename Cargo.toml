@@ -1,11 +1,11 @@
 [package]
 name = "whisper_stream"
 version = "0.3.0"
-edition = "2024"
+edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 # This work is based off of https://github.com/Gadersd/whisper-burn/tree/main
 # it has been updated to use burn 13 and also has two new binaries 'stream' and 'translate'
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 burn = { version="0.13.1", features=["wgpu"] }
