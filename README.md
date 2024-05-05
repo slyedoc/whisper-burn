@@ -85,3 +85,7 @@ cargo run --release --features wgpu-backend --bin transcribe tiny_en audio16k.wa
 This usage assumes that "audio16k.wav" is the audio file you want to transcribe, and "tiny_en" is the model to use. Please adjust according to your specific needs.
 
 Enjoy using **Whisper Burn**!
+
+
+RUSTFLAGS="-A warnings" cargo run --release  --bin transcribe tiny audio16k.wav en transcription.txt
+RUSTFLAGS="-A warnings" cargo run --release --bin stream tiny en

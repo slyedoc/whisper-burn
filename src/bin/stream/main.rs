@@ -217,7 +217,7 @@ fn record_audio(sender: mpsc::Sender<Vec<i16>>) {
     let config = device.default_input_config().expect("Failed to get default input config");
     let sample_rate = config.sample_rate().0 as f32;
     let mut vad = Vad::new_with_rate(webrtc_vad::SampleRate::Rate16kHz);
-    vad.set_mode(VadMode::Aggressive);
+    vad.set_mode(VadMode::VeryAggressive);
 
     // Create a stream with the default input format
     let (mut producer, mut consumer) = RingBuffer::<i16>::new(16384);

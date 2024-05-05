@@ -15,6 +15,7 @@ use burn::{
 };
 use num_traits::ToPrimitive;
 use std::{f32, iter, ops::Div};
+use std::time::Instant;
 
 pub fn waveform_to_text<B: Backend>(
     whisper: &Whisper<B>,
@@ -30,32 +31,53 @@ pub fn waveform_to_text<B: Backend>(
     let padding = 30; //ADJUST THIS IF CHINKS ARE REPEATING THEMSELVES ENDLESSLY
     let n_waveform_samples_per_window = max_waveform_samples(n_ctx_max_encoder - padding);
 
+
+
+
+
+    // let tensor_size = waveform.len();
+    // let mel_tensor = Tensor::from_floats(
+    //     tensor::Data::new(waveform, [tensor_size].into()),
+    //     &device,
+    // );
+    // let dims = &mel_tensor.dims();
+
+    // let mel = prep_audio(mel_tensor.unsqueeze(), sample_rate as f64);
+    // println!("BEFORE PREP: {:?}, MEL AFTER PREP: {:?}", dims, mel.dims());
+
+    // let (new_text, new_tokens) = mels_to_text(
+    //     whisper,
+    //     bpe,
+    //     lang,
+    //     mel,
+    //     padding,
+    //     streaming_mode,
+    // )?;
+    // println!("NEW TEXT: {:?}, NEW TOKENS: {:?}", &new_text, &new_tokens);
+
+    // Ok((new_text, new_tokens))
+
+
+
+
     let mel_iter =
         waveform_to_mel_tensor(waveform, sample_rate, n_waveform_samples_per_window, device);
 
     let mut text = String::new();
     let mut tokens: Vec<usize> = Vec::new();
 
+    //IN THE FOLLOWING CODE, WE WILL PRETTY MUCH ALWAYS ITERATE JUST ONCE, SINCE WE ARE SENDING SUCH SHORT CLIPS OF AUDIO. THIS MEANS FIND CHUNK OVERLAP IS NOT NECESSARY BUT CAN LEAVE IT FOR THE FUTURE
     for (i, mel) in mel_iter.enumerate() {
-        let mut prev_normal_tokens: Vec<_> = tokens
-            .iter()
-            .rev()
-            .filter(|&&t| !bpe.is_special(t))
-            .cloned()
-            .take(5)
-            .collect();
-        prev_normal_tokens.reverse();
-        //println!("Prev tokens: {:?} {}", prev_normal_tokens, bpe.decode(&prev_normal_tokens[..], false)?);
-
+        println!("MEL DIMS: {:?}", &mel.dims());
         let (new_text, new_tokens) = mels_to_text(
             whisper,
             bpe,
             lang,
             mel,
-            &prev_normal_tokens[..],
             padding,
             streaming_mode,
         )?;
+        //println!("NEW TEXT: {:?}, NEW TOKENS: {:?}", &new_text, &new_tokens);
 
         if let Some((prev_index, curr_index)) =
             find_chunk_overlap(&tokens[..], &new_tokens[..], 40, 3)
@@ -66,52 +88,12 @@ pub fn waveform_to_text<B: Backend>(
             tokens.extend(new_tokens);
         }
 
-        //tokens.extend(new_tokens);
-
         text = bpe.decode(&tokens[..], true)?;
-        //println!("Chunk {}: {}\n", i, text);
-
-        //text += &new_text;
     }
 
     Ok((text, tokens))
 }
 
-fn find_chunk_overlap(
-    prev_tokens: &[usize],
-    curr_tokens: &[usize],
-    max_n_offsets: usize,
-    min_n_overlaps: usize,
-) -> Option<(usize, usize)> {
-    let mut max_overlap = 0;
-    let mut max_overlap_indices = (0, 0);
-    let n_offsets = prev_tokens.len().min(curr_tokens.len()).min(max_n_offsets);
-
-    for offset in 0..n_offsets {
-        let prev_start_index = prev_tokens.len() - 1 - offset;
-        let mut overlap_iter = prev_tokens
-            .iter()
-            .skip(prev_start_index)
-            .zip(curr_tokens.iter())
-            .enumerate()
-            .filter(|(_, (&old, &new))| old == new);
-
-        let n_overlap = overlap_iter.clone().count();
-        if n_overlap > max_overlap {
-            max_overlap = n_overlap;
-
-            let curr_overlap_index = overlap_iter.next().unwrap().0;
-            let prev_overlap_index = prev_start_index + curr_overlap_index;
-            max_overlap_indices = (prev_overlap_index, curr_overlap_index)
-        }
-    }
-
-    if max_overlap >= min_n_overlaps {
-        Some(max_overlap_indices)
-    } else {
-        None
-    }
-}
 
 fn waveform_to_mel_tensor<B: Backend>(
     waveform: Vec<f32>,
@@ -134,8 +116,10 @@ fn waveform_to_mel_tensor<B: Backend>(
             tensor::Data::new(slice.to_vec(), [slice.len()].into()),
             &device,
         );
+        println!("WAQVEFORM LEN: {:?}", &waveform.dims());
 
         let mels = prep_audio(waveform.unsqueeze(), sample_rate as f64);
+        println!("MELS: {:?}", &mels);
 
         mels
     })
@@ -152,7 +136,6 @@ fn mels_to_text<B: Backend>(
     bpe: &Gpt2Tokenizer,
     lang: Language,
     mels: Tensor<B, 3>,
-    prev_nonspecial_tokens: &[usize],
     padding: usize,
     streaming_mode: bool,
 ) -> token::Result<(String, Vec<usize>)> {
@@ -178,6 +161,7 @@ fn mels_to_text<B: Backend>(
         ],
         2,
     );
+    let encoder_output = whisper.forward_encoder(mels);
 
     let start_token = bpe.special_token(SpecialToken::StartofTranscript).unwrap();
     let transcription_token = bpe.special_token(SpecialToken::Transcribe).unwrap();
@@ -187,19 +171,10 @@ fn mels_to_text<B: Backend>(
     let end_token = bpe.special_token(SpecialToken::EndofText).unwrap();
     let notimestamp = bpe.special_token(SpecialToken::NoTimeStamps).unwrap();
 
-    // println!("start_token: {:?}", start_token);
-    // println!("transcription_token: {:?}", transcription_token);
-    // println!("start_of_prev_token: {:?}", start_of_prev_token);
-    // println!("lang_token: {:?}", lang_token);
-    // println!("first_timestamp_token: {:?}", first_timestamp_token);
-    // println!("end_token: {:?}", end_token);
-    // println!("notimestamp: {:?}", notimestamp);
-
     let mut initial_tokens = Vec::new();
-
     initial_tokens.extend([start_token, lang_token, transcription_token, notimestamp]);
 
-    // println!("{:?}", &initial_tokens);
+    println!("{:?}", &initial_tokens);
 
     type BeamNode = beam::BeamNode<BeamSearchToken>;
     let initial_tokens = BeamNode {
@@ -213,19 +188,7 @@ fn mels_to_text<B: Backend>(
         log_prob: 0.0,
     };
 
-    let encoder_output = whisper.forward_encoder(mels);
-
     let neg_infty = -f32::INFINITY;
-    let beam_size = 5;
-    let max_depth = 100;
-
-    let beamsearch_is_finished = |toks: &[BeamSearchToken]| {
-        if let Some(btok) = toks.last() {
-            btok.token == end_token
-        } else {
-            false
-        }
-    };
 
     let vocab_size = bpe.vocab_size();
     let mut special_tokens_maskout: Vec<f32> = (0..vocab_size)
@@ -312,6 +275,16 @@ fn mels_to_text<B: Backend>(
         continuations
     };
 
+    let beamsearch_is_finished = |toks: &[BeamSearchToken]| {
+        if let Some(btok) = toks.last() {
+            btok.token == end_token
+        } else {
+            false
+        }
+    };
+
+    let beam_size = 5;
+    let max_depth = 30;
     let mut tokens: Vec<_> = beam::beam_search(
         vec![initial_tokens],
         beamsearch_next,
@@ -323,136 +296,49 @@ fn mels_to_text<B: Backend>(
     .map(|btok| btok.token)
     .collect();
 
-    // println!("{:?}", &tokens);
-
-    /*let mut tokens: Vec<_> = [start_token, lang_token, transcription_token, notimestamp].to_vec();
-
-    loop {
-        if tokens.len() >= n_ctx_max_decoder {
-            tokens.push(end_token);
-            break;
-        }
-
-        let token_tensor = Tensor::from_ints(Data::from_usize(Data::new(
-            tokens.clone(),
-            [tokens.len()].into(),
-        )))
-        .unsqueeze::<2>()
-        .to_device(&device);
-
-        let out = whisper.forward_decoder(token_tensor, encoder_output.clone());
-
-        let [n_batch, n_token, n_dict] = out.dims();
-        let last_row: Tensor<B, 1> = out.slice([0..1, (n_token - 1)..n_token]).flatten(0, 2);
-
-        let token_id = last_row.clone().argmax(0).into_scalar().to_usize().unwrap();
-        let token_logit = last_row
-            .clone()
-            .slice([token_id..(token_id + 1)])
-            .into_scalar()
-            .to_f64()
-            .unwrap();
-        let eot_logit = last_row
-            .slice([end_token..(end_token + 1)])
-            .into_scalar()
-            .to_f64()
-            .unwrap();
-
-        tokens.push(token_id);
-        //println!("{}", bpe.decode(&[token_id], false)?);
-
-        // if end of text confidence is great enough then stop
-        if (eot_logit - token_logit).exp() > 0.5 {
-            if token_id != end_token {
-                tokens.push(end_token);
-            }
-            break;
-        }
-
-        let repeat_window_size = 5;
-        let min_n_repeats = 4; // three times to charm, four to scorn
-        /*println!("{}", bpe.decode(&tokens[..], false).unwrap());
-        if let Some(period) = repetition_period(&tokens[..], min_n_repeats) {
-            println!("period = {}", period);
-            let end = first_repetition_end(&tokens[..], period);
-
-            tokens.truncate(end);
-            tokens.push(end_token);
-            break;
-        }*/
-        if let Some( (index_of_first_repeat, end) ) =
-            find_repeated_tokens_index(&tokens[..], repeat_window_size, min_n_repeats)
-        {
-            //let end = index_of_first_repeat + repeat_window_size;
-
-            tokens.truncate(end);
-            tokens.push(end_token);
-            break;
-        }
-    }*/
-
-    let text = bpe.decode(&tokens[..], true)?;
+    println!("TOKENS RIGHT BEFORE DECODING: {:?}", &tokens);
+    let text = bpe.decode(&tokens[..], false)?;
 
     return Ok((text, tokens));
 }
 
-fn first_repetition_end(tokens: &[usize], period: usize) -> usize {
-    for i in (period..tokens.len() - period).into_iter().rev() {
-        if tokens[i - period..i] != tokens[i..i + period] {
-            return i + 1;
-        }
-    }
 
-    period
-}
 
-fn repetition_period(tokens: &[usize], min_repetitions: usize) -> Option<usize> {
-    for i in (0..tokens.len()).into_iter().rev() {
-        let period = tokens.len() - i;
 
-        if i / period < min_repetitions {
-            return None;
-        }
 
-        if (0..min_repetitions).into_iter().all(|j| {
-            let e = i - period * j;
-            let s = e - period;
-
-            tokens[s..e] == tokens[i..i + period]
-        }) {
-            return Some(period);
-        }
-    }
-
-    None
-}
-
-fn find_repeated_tokens_index(
-    tokens: &[usize],
-    window_size: usize,
-    min_repeat_count: usize,
+//HELPERS
+fn find_chunk_overlap(
+    prev_tokens: &[usize],
+    curr_tokens: &[usize],
+    max_n_offsets: usize,
+    min_n_overlaps: usize,
 ) -> Option<(usize, usize)> {
-    // the last window isn't checked or overlapped with itself
-    if 2 * window_size > tokens.len() {
-        return None;
+    let mut max_overlap = 0;
+    let mut max_overlap_indices = (0, 0);
+    let n_offsets = prev_tokens.len().min(curr_tokens.len()).min(max_n_offsets);
+
+    for offset in 0..n_offsets {
+        let prev_start_index = prev_tokens.len() - 1 - offset;
+        let mut overlap_iter = prev_tokens
+            .iter()
+            .skip(prev_start_index)
+            .zip(curr_tokens.iter())
+            .enumerate()
+            .filter(|(_, (&old, &new))| old == new);
+
+        let n_overlap = overlap_iter.clone().count();
+        if n_overlap > max_overlap {
+            max_overlap = n_overlap;
+
+            let curr_overlap_index = overlap_iter.next().unwrap().0;
+            let prev_overlap_index = prev_start_index + curr_overlap_index;
+            max_overlap_indices = (prev_overlap_index, curr_overlap_index)
+        }
     }
 
-    let last_index = tokens.len() - window_size;
-    let last_window = &tokens[last_index..];
-
-    let sliding_windows = (0..=(last_index - window_size))
-        .into_iter()
-        .map(|i| &tokens[i..(i + window_size)])
-        .enumerate();
-
-    let mut repeats = sliding_windows.filter(|(_, window)| window == &last_window);
-
-    let n_repeats = repeats.clone().count();
-    if n_repeats >= min_repeat_count {
-        let first_repeat_index = repeats.next().unwrap().0;
-        let end = repeats.next().unwrap().0;
-        return Some((first_repeat_index, end));
+    if max_overlap >= min_n_overlaps {
+        Some(max_overlap_indices)
     } else {
-        return None;
-    };
+        None
+    }
 }
