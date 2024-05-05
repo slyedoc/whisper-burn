@@ -31,35 +31,6 @@ pub fn waveform_to_text<B: Backend>(
     let padding = 30; //ADJUST THIS IF CHINKS ARE REPEATING THEMSELVES ENDLESSLY
     let n_waveform_samples_per_window = max_waveform_samples(n_ctx_max_encoder - padding);
 
-
-
-
-
-    // let tensor_size = waveform.len();
-    // let mel_tensor = Tensor::from_floats(
-    //     tensor::Data::new(waveform, [tensor_size].into()),
-    //     &device,
-    // );
-    // let dims = &mel_tensor.dims();
-
-    // let mel = prep_audio(mel_tensor.unsqueeze(), sample_rate as f64);
-    // println!("BEFORE PREP: {:?}, MEL AFTER PREP: {:?}", dims, mel.dims());
-
-    // let (new_text, new_tokens) = mels_to_text(
-    //     whisper,
-    //     bpe,
-    //     lang,
-    //     mel,
-    //     padding,
-    //     streaming_mode,
-    // )?;
-    // println!("NEW TEXT: {:?}, NEW TOKENS: {:?}", &new_text, &new_tokens);
-
-    // Ok((new_text, new_tokens))
-
-
-
-
     let mel_iter =
         waveform_to_mel_tensor(waveform, sample_rate, n_waveform_samples_per_window, device);
 
