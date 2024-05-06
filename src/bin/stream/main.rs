@@ -35,8 +35,9 @@ use whisper_stream::{
 use webrtc_vad::{Vad, VadMode, SampleRate};
 use rtrb::{Consumer, RingBuffer};
 
-const BUFFER_FRAME_COUNT: usize = 150;
+const BUFFER_FRAME_COUNT: usize = 35;
 const MINIMUM_SAMPLE_COUNT: usize = 1600 * 4; // @ 16kHz = 400ms
+const MAXIMUM_SAMPLE_COUNT: usize = 1600 * 50;
 
 fn main() {
     //COMMAND LINE
@@ -180,21 +181,21 @@ fn process_audio_data(
         let processed_len = audio_data_vectors.len();
 
 
-        //LEAVING THIS FOR NOW AS THEIR IS STILL A BIT OF AUDIO DISTORTION AND WANT TO DEBUG LATER
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: 16000, // adjust this to match your audio data
-            bits_per_sample: 16, // adjust this to match your audio data
-            sample_format: hound::SampleFormat::Int,
-        };
+        // //LEAVING THIS FOR NOW AS THEIR IS STILL A BIT OF AUDIO DISTORTION AND WANT TO DEBUG LATER
+        // let spec = hound::WavSpec {
+        //     channels: 1,
+        //     sample_rate: 16000, // adjust this to match your audio data
+        //     bits_per_sample: 16, // adjust this to match your audio data
+        //     sample_format: hound::SampleFormat::Int,
+        // };
         
-        let mut writer = hound::WavWriter::create(format!("output_{}.wav", i), spec).unwrap();
-        let mut audio_data_vectors_clone_for_inference2: Vec<i16> = audio_data_vectors.clone().into();
-        for sample in audio_data_vectors_clone_for_inference2 {
-            writer.write_sample(sample).unwrap(); // cast to i16, adjust this to match your audio data
-        }
+        // let mut writer = hound::WavWriter::create(format!("output_{}.wav", i), spec).unwrap();
+        // let mut audio_data_vectors_clone_for_inference2: Vec<i16> = audio_data_vectors.clone().into();
+        // for sample in audio_data_vectors_clone_for_inference2 {
+        //     writer.write_sample(sample).unwrap(); // cast to i16, adjust this to match your audio data
+        // }
         
-        writer.finalize().unwrap();
+        // writer.finalize().unwrap();
 
 
         //RUN INFERENCE
@@ -217,7 +218,7 @@ fn record_audio(sender: mpsc::Sender<Vec<i16>>) {
     let config = device.default_input_config().expect("Failed to get default input config");
     let sample_rate = config.sample_rate().0 as f32;
     let mut vad = Vad::new_with_rate(webrtc_vad::SampleRate::Rate16kHz);
-    vad.set_mode(VadMode::Quality);
+    vad.set_mode(VadMode::Aggressive);
 
     // Create a stream with the default input format
     let (mut producer, mut consumer) = RingBuffer::<i16>::new(16384);
@@ -265,6 +266,10 @@ fn record_audio(sender: mpsc::Sender<Vec<i16>>) {
             if speaking {
                 if speech_active {
                     speech_segment.extend(audio_frame);
+                    if speech_segment.len() > MAXIMUM_SAMPLE_COUNT {
+                        sender.send(speech_segment.clone()).expect("Failed to send data");
+                        speech_segment.clear();
+                    }
                 } else {
                     if unactive_count > BUFFER_FRAME_COUNT {
                         /* 
