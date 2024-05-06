@@ -1,1 +1,190 @@
-Hello, I am the whisper machine learning model. If you see this as text then I am working properly.
+0,  OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK OK, 16043, 2024-04-29 15:20:19
+
+1,  Hopefully we have gotten rid of some code redundancies. That would be a super ideal. But I guess we will see what happened to me. Right now what happened to me. Right now what happened to me. Right now what happened to me. Right now what happened to me. Right now what happened to me. Right now what happened to me., 208046, 2024-04-29 15:20:30
+
+2,  which means, yeah, we're hallucinating with 18, you know, 'cause that is way much we don't have to increase., 143874, 2024-04-29 15:20:34
+
+3,  the timing of what's going on around., 64001, 2024-04-29 15:20:37
+
+4,  So., 32086, 2024-04-29 15:20:39
+
+5,  [Music], 32086, 2024-04-29 15:20:41
+
+6,  . . ., 31915, 2024-04-29 15:20:49
+
+7,  hello hello hello hello hello hello hello hello hello hello hello, 111959, 2024-04-29 15:20:54
+
+8,  This is my old friend It's coming to..., 63659, 2024-04-29 15:20:57
+
+9,  see you again, 48129, 2024-04-29 15:20:59
+
+0,  okay we, 54080, 2024-05-01 14:52:45
+
+1,  It's me., 9600, 2024-05-01 14:52:45
+
+2,  and to, 30080, 2024-05-01 14:52:47
+
+3,  And all my god is an action running into this., 49920, 2024-05-01 14:52:50
+
+0,  Okay, I'm speaking in all of the songs and..., 72320, 2024-05-01 14:53:56
+
+1,  okay so speaking this is good, 59840, 2024-05-01 14:54:02
+
+2,  Okay we're really getting back, 47040, 2024-05-01 14:54:07
+
+3,  It's not quite accurate, but it's working graph., 76480, 2024-05-01 14:54:13
+
+0,  Okay, I'm speaking, 38080, 2024-05-01 14:54:34
+
+1,  and now speaking again hopefully this is work, 80960, 2024-05-01 14:54:39
+
+2,  it was, 16640, 2024-05-01 14:54:43
+
+3,  okay down, 34240, 2024-05-01 14:54:46
+
+4,  [sad music], 23360, 2024-05-01 14:54:49
+
+5,  Okay, little more, sit to..., 72640, 2024-05-01 14:54:52
+
+6,  We're, 18240, 2024-05-01 14:54:53
+
+7,  [Bell], 15680, 2024-05-01 14:55:42
+
+8,  (a), 24000, 2024-05-01 14:55:45
+
+9,  what else, 20160, 2024-05-01 14:55:46
+
+10,  [Bell], 8320, 2024-05-01 14:55:50
+
+0,  Fights simply increase the size of the buffer frame count, so that work., 120960, 2024-05-01 14:56:20
+
+1,  Nothing really, 22400, 2024-05-01 14:56:26
+
+2,  But I'm used circling more., 39040, 2024-05-01 14:56:31
+
+3,  I want to be the obvious to something too distorted, 66560, 2024-05-01 14:56:37
+
+0,  Don't laugh., 22720, 2024-05-01 14:59:00
+
+1,  ah ah, 24000, 2024-05-01 14:59:06
+
+2,  ♪ ♪ ♪, 37120, 2024-05-01 14:59:11
+
+3,  a., 7360, 2024-05-01 14:59:17
+
+4,  Okay,, 44160, 2024-05-01 14:59:26
+
+5,  at least, 51520, 2024-05-01 14:59:37
+
+6,  Although it's really only taking a, 57600, 2024-05-01 14:59:44
+
+7,  mm, 18880, 2024-05-01 14:59:46
+
+8,  ♪ ♪, 44800, 2024-05-01 15:00:18
+
+9,  [music], 27840, 2024-05-01 15:00:21
+
+10,  [music], 39360, 2024-05-01 15:00:24
+
+11,  I was, 27840, 2024-05-01 15:00:26
+
+12,  I don't think it's good., 22720, 2024-05-01 15:00:28
+
+13,  The most, 81920, 2024-05-01 15:00:31
+
+14,  ♪ ♪, 41920, 2024-05-01 15:00:34
+
+15,  ♪ ♪, 60480, 2024-05-01 15:00:37
+
+0,  I'm going to do this., 7040, 2024-05-01 15:00:56
+
+1,  Yeah., 29440, 2024-05-01 15:00:57
+
+2,  [inaudible], 20480, 2024-05-01 15:01:00
+
+3,  Yes., 26560, 2024-05-01 15:01:01
+
+4,  I'm enjoying you today., 35200, 2024-05-01 15:01:03
+
+5,  [Bird sound], 26240, 2024-05-01 15:01:46
+
+0,  it's, 19680, 2024-05-01 22:02:44
+
+1,  That wasn't great, admittedly., 28320, 2024-05-01 22:02:50
+
+2,  That was good. That was good., 11360, 2024-05-01 22:02:54
+
+3,  little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose in the toy. Little bit of loose, 26720, 2024-05-01 22:03:08
+
+4,  how they would, 35040, 2024-05-01 22:03:21
+
+0,  can find if I'm on the target., 37280, 2024-05-02 12:02:29
+
+0,  Okay, let's see how this goes., 25120, 2024-05-02 12:36:44
+
+1,  How about men?, 23680, 2024-05-02 12:36:47
+
+0,  My name is Andrew and I am speaking clearly, 49440, 2024-05-02 12:37:12
+
+0,  Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's turn this again. Alright, let's, 27680, 2024-05-02 12:55:32
+
+1,  was a bit of a struggle., 19680, 2024-05-02 12:55:40
+
+2,  So., 13440, 2024-05-02 12:56:10
+
+3,  How come you're such a sweet, lovely day to go. Who always makes me feel so loved and appreciated and nostalgic day like you're always thinking about me., 147200, 2024-05-02 12:56:30
+
+4,  you are the sweetest babyclaw in the world and I hope to know that., 57600, 2024-05-02 12:56:33
+
+5,  this one, 10720, 2024-05-02 12:56:38
+
+0,  The rim buffer was getting full before, let's see how it does now., 66240, 2024-05-02 12:59:33
+
+1,  Well that worked, but I wonder if I just talk for a really long time without stopping and just keep on going and keep on going and keep on going if it will eventually stop., 157600, 2024-05-02 12:59:51
+
+2,  it is processing pretty well by the way, 31360, 2024-05-02 12:59:59
+
+3,  So,, 12640, 2024-05-02 13:00:26
+
+4,  How come now it's not overflowing whereas before it was? What is the problem?, 82240, 2024-05-02 13:00:35
+
+5,  count count, 8960, 2024-05-02 13:00:43
+
+6,  Thank you, 24480, 2024-05-02 13:00:46
+
+0,  Let's try these flat. Let's try these flat. Let's try these flat. Let's try these flat., 32000, 2024-05-02 13:11:39
+
+1,  Okay, we're printing the size of the producer, but not in the entrance. We're printing the size of the producer, but not in the entrance., 51360, 2024-05-02 13:11:43
+
+2,  1 2 3, 7360, 2024-05-02 13:11:43
+
+3,  1, 2, 3, 2, 3, 2, 3,, 9280, 2024-05-02 13:11:45
+
+4,  (music), 9120, 2024-05-02 13:11:51
+
+5,  (music), 10080, 2024-05-02 13:11:51
+
+0,  When does the size of this producer just get ridiculous at all and it seems like it, 64800, 2024-05-02 13:12:24
+
+1,  at 16,000 the entire time so it's unclear to me when this is ever going below that., 91200, 2024-05-02 13:12:31
+
+2,  B., 8960, 2024-05-02 13:12:50
+
+3,  What the fuck is wrong with you, Mr. Producer, you are changing it all, but you are sometimes..., 132160, 2024-05-02 13:13:00
+
+4,  feeling for like no reason, 34400, 2024-05-02 13:13:01
+
+5,  what the fact, 11840, 2024-05-02 13:13:06
+
+6,  t t, 9600, 2024-05-02 13:13:14
+
+7,  Bitch, I said what I said, I'd rather give time instead, 84160, 2024-05-02 13:13:21
+
+0,  Bitch, I said what I said. I rather be famous instead. Bitch, I said what I said. I rather be famous instead. Bitch, I said what I said. I rather be famous instead. Bitch, I said what I said. I rather be famous instead., 97120, 2024-05-02 13:13:59
+
+1,  Let's funny., 13600, 2024-05-02 13:14:08
+
+2,  Who is somebody?, 12800, 2024-05-02 13:14:12
+
+3,  You're funny., 11680, 2024-05-02 13:14:15
+

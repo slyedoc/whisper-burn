@@ -5,7 +5,7 @@ use burn::{
         conv::{Conv1d, Conv1dConfig, Conv1dRecord},
         PaddingConfig1d,
     },
-    tensor::{activation::relu, backend::Backend, Bool, Int, Tensor},
+    tensor::{activation::relu, backend::Backend, Bool, Device, Int, Tensor},
 };
 
 use super::*;
@@ -23,7 +23,11 @@ fn numpy_to_tensor<B: Backend, const D: usize>(numpy_data: NpyData<f32>) -> Tens
         .map(|&v| v as usize)
         .collect::<Vec<_>>()
         .into();
-    Tensor::from_floats(&v[D..]).reshape(shape)
+
+    //let tensor_device_ref = Tensor::from_primitive([0]).device();
+    let tensor_device_ref = Default::default(); //WgpuDevice::BestAvailable;
+
+    Tensor::from_floats(&v[D..], &tensor_device_ref).reshape(shape)
 }
 
 fn load_tensor<B: Backend, const D: usize>(
@@ -55,30 +59,36 @@ fn load_usize<B: Backend>(name: &str, path: &str) -> Result<usize, Box<dyn Error
 fn load_linear<B: Backend>(path: &str) -> Result<nn::Linear<B>, Box<dyn Error>> {
     let weight = load_tensor::<B, 2>("weight", path)?;
     let bias = load_tensor::<B, 1>("bias", path).ok();
+    let tensor_device_ref = weight.device();
 
     let record = nn::LinearRecord {
-        weight: weight.into(),
-        bias: bias.map(|t| t.into()),
+        weight: Param::from_tensor(weight),
+        bias: bias.map(|t| Param::from_tensor(t)),
     };
 
-    let linear: nn::Linear<B> = nn::LinearConfig::new(3, 3).init_with(record);
+    let linear: nn::Linear<B> = nn::LinearConfig::new(3, 3)
+        .init(&tensor_device_ref)
+        .load_record(record);
     Ok(linear)
 }
 
 fn load_layer_norm<B: Backend>(path: &str) -> Result<nn::LayerNorm<B>, Box<dyn Error>> {
-    let weight = load_tensor::<B, 1>("weight", path)?;
-    let bias = load_tensor::<B, 1>("bias", path)?;
+    let weight = Param::from_tensor(load_tensor::<B, 1>("weight", path)?);
+    let bias = Param::from_tensor(load_tensor::<B, 1>("bias", path)?);
     let eps = load_f32::<B>("eps", path)? as f64;
+    let tensor_device_ref = weight.device();
 
     let [n_state] = weight.dims();
 
     let record = nn::LayerNormRecord {
-        gamma: weight.into(),
-        beta: bias.into(),
+        gamma: weight,
+        beta: bias,
         epsilon: <f64 as Module<B>>::into_record(eps),
     };
 
-    let layer_norm: nn::LayerNorm<B> = nn::LayerNormConfig::new(n_state).init_with(record);
+    let layer_norm: nn::LayerNorm<B> = nn::LayerNormConfig::new(n_state)
+        .init(&tensor_device_ref)
+        .load_record(record);
 
     Ok(layer_norm)
 }
@@ -90,7 +100,6 @@ fn load_multihead_self_attention<B: Backend>(
     let key = load_linear(&format!("{}/{}", path, "key"))?;
     let value = load_linear(&format!("{}/{}", path, "value"))?;
     let out = load_linear(&format!("{}/{}", path, "out"))?;
-
     let n_head: usize = load_usize::<B>("n_head", path)?;
 
     // Initializing attention block
@@ -131,7 +140,7 @@ fn load_mlp<B: Backend>(path: &str) -> Result<MLP<B>, Box<dyn Error>> {
     let lin1 = load_linear(&format!("{}/{}", path, "mlp1"))?;
     let lin2 = load_linear(&format!("{}/{}", path, "mlp2"))?;
 
-    let gelu = nn::GELU::new();
+    let gelu = nn::Gelu::new();
 
     let mlp = MLP {
         lin1: lin1,
@@ -143,12 +152,13 @@ fn load_mlp<B: Backend>(path: &str) -> Result<MLP<B>, Box<dyn Error>> {
 }
 
 fn load_conv1d<B: Backend>(path: &str, config: Conv1dConfig) -> Result<Conv1d<B>, Box<dyn Error>> {
-    let weight = load_tensor::<B, 3>("weight", path)?;
-    let bias = load_tensor::<B, 1>("bias", path)?;
+    let weight = Param::from_tensor(load_tensor::<B, 3>("weight", path)?);
+    let bias = Param::from_tensor(load_tensor::<B, 1>("bias", path)?);
+    let tensor_device_ref = weight.device();
 
     let record = Conv1dRecord {
-        weight: weight.into(),
-        bias: Some(bias.into()),
+        weight: weight,
+        bias: Some(bias),
         stride: <usize as Module<B>>::into_record(1),
         kernel_size: <usize as Module<B>>::into_record(1),
         dilation: <usize as Module<B>>::into_record(1),
@@ -156,7 +166,7 @@ fn load_conv1d<B: Backend>(path: &str, config: Conv1dConfig) -> Result<Conv1d<B>
         padding: <usize as Module<B>>::into_record(10),
     };
 
-    let conv1d: Conv1d<B> = config.init_with(record);
+    let conv1d: Conv1d<B> = config.init(&tensor_device_ref).load_record(record);
     Ok(conv1d)
 }
 
@@ -222,7 +232,8 @@ fn load_audio_encoder<B: Backend>(
         .collect::<Result<_, _>>()?;
 
     let ln_post = load_layer_norm(&format!("{}/{}", path, "ln_post"))?;
-    let positional_embedding = load_tensor::<B, 2>("positional_embedding", path)?;
+    let positional_embedding =
+        Param::from_tensor(load_tensor::<B, 2>("positional_embedding", path)?);
 
     let [n_audio_ctx, _] = positional_embedding.dims();
 
@@ -230,12 +241,12 @@ fn load_audio_encoder<B: Backend>(
 
     let audio_encoder = AudioEncoder {
         conv1: conv1,
-        gelu1: nn::GELU::new(),
+        gelu1: nn::Gelu::new(),
         conv2: conv2,
-        gelu2: nn::GELU::new(),
+        gelu2: nn::Gelu::new(),
         blocks: blocks,
         ln_post: ln_post,
-        positional_embedding: positional_embedding.into(),
+        positional_embedding: positional_embedding,
         n_audio_ctx: n_audio_ctx,
         n_mels: n_mels,
     };
@@ -256,6 +267,7 @@ fn load_text_decoder<B: Backend>(
 ) -> Result<(TextDecoder<B>, TextDecoderConfig), Box<dyn Error>> {
     let token_embedding = load_tensor::<B, 2>("token_embedding/weight", path)?;
     let positional_embedding = load_tensor::<B, 2>("positional_embedding", path)?;
+    let tensor_device_ref = token_embedding.device();
 
     let n_layer = load_usize::<B>("n_layer", path)?;
     let blocks: Vec<ResidualDecoderAttentionBlock<B>> = (0..n_layer)
@@ -267,16 +279,17 @@ fn load_text_decoder<B: Backend>(
     let ln = load_layer_norm(&format!("{}/{}", path, "ln"))?;
 
     let [n_text_ctx, n_text_state] = positional_embedding.dims();
-    let mask = attn_decoder_mask(n_text_ctx).into();
+
+    let mask = attn_decoder_mask(n_text_ctx, &tensor_device_ref);
 
     let [n_vocab, _] = token_embedding.dims();
 
     let text_decoder = TextDecoder {
-        token_embedding: token_embedding.into(),
-        positional_embedding: positional_embedding.into(),
+        token_embedding: Param::from_tensor(token_embedding),
+        positional_embedding: Param::from_tensor(positional_embedding),
         blocks: blocks,
         ln: ln,
-        mask: mask,
+        mask: Param::from_tensor(mask),
         n_text_ctx: n_text_ctx,
         n_vocab: n_vocab,
     };
@@ -293,9 +306,11 @@ fn load_text_decoder<B: Backend>(
 }
 
 pub fn load_whisper<B: Backend>(path: &str) -> Result<(Whisper<B>, WhisperConfig), Box<dyn Error>> {
+    println!("HELLO");
     let (encoder, encoder_config) = load_audio_encoder(&format!("{}/{}", path, "encoder"))?;
+    println!("HERE");
     let (decoder, decoder_config) = load_text_decoder(&format!("{}/{}", path, "decoder"))?;
-
+    println!("NOT HERE");
     let whisper = Whisper {
         encoder: encoder,
         decoder: decoder,

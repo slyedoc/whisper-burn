@@ -10,10 +10,9 @@ pub struct Gpt2Tokenizer {
 }
 
 impl Gpt2Tokenizer {
-    pub fn new() -> Result<Self> {
-        //let mut tokenizer = tokenizers::Tokenizer::from_pretrained("gpt2", None)?;
-        let mut tokenizer = tokenizers::Tokenizer::from_file("tokenizer.json")?;
-        //tokenizer.add_special_tokens(&construct_special_tokens());
+    pub fn new(model_name: &str) -> Result<Self> {
+        let mut tokenizer =
+            tokenizers::Tokenizer::from_file(&format!("models/{}/tokenizer.json", &model_name))?;
 
         Ok(Self { tokenizer })
     }
@@ -30,13 +29,15 @@ impl Gpt2Tokenizer {
     }
 
     pub fn decode(&self, tokens: &[usize], skip_special: bool) -> Result<String> {
-        self.tokenizer
-            .decode(tokens.iter().map(|t| *t as u32).collect(), skip_special)
+        self.tokenizer.decode(
+            &tokens.iter().map(|t| *t as u32).collect::<Vec<u32>>(),
+            skip_special,
+        )
     }
 
     pub fn is_special(&self, token: usize) -> bool {
         self.tokenizer
-            .decode(vec![token as u32], true)
+            .decode(vec![token as u32].as_slice(), true)
             .ok()
             .map(|s| s.is_empty())
             .unwrap_or(false)
@@ -66,7 +67,7 @@ pub enum Language {
     German,
     Spanish,
     Russian,
-    Korean, 
+    Korean,
     French,
     Japanese,
     Portuguese,
@@ -77,7 +78,7 @@ pub enum Language {
     Arabic,
     Swedish,
     Italian,
-    Indonesian, 
+    Indonesian,
     Hindi,
     Finnish,
     Vietnamese,
@@ -139,11 +140,11 @@ pub enum Language {
     Amharic,
     Yiddish,
     Lao,
-    Uzbek, 
+    Uzbek,
     Faroese,
     HaitianCreole,
     Pashto,
-    Turkmen, 
+    Turkmen,
     Nynorsk,
     Maltese,
     Samoan,
@@ -157,7 +158,7 @@ pub enum Language {
     Hausa,
     Bashkir,
     Javanese,
-    Sundanese
+    Sundanese,
 }
 
 impl Language {
