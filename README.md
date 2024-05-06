@@ -101,6 +101,8 @@ To start the project in streaming mode, which takes in audio input from your mic
 cargo run --release --bin stream tiny en
 ```
 
+https://github.com/sudomonikers/whisper-burn/assets/95388033/16ac3dd2-827a-46a2-8167-33c2d1244d52
+
 ### Real-Time Translation
 We are also working on a new binary for real-time translation. This feature is currently a work in progress, so stay tuned for updates!
 
