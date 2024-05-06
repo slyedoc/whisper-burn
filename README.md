@@ -75,17 +75,64 @@ sox audio.wav -r 16000 -c 1 audio16k.wav
 Now transcribe.
 
 ```
-# with tch backend (default)
+# this uses wgpu backend
 cargo run --release --bin transcribe tiny_en audio16k.wav en transcription.txt
-
-# or with wgpu backend (may be unstable for large models)
-cargo run --release --features wgpu-backend --bin transcribe tiny_en audio16k.wav en transcription.txt
 ```
 
 This usage assumes that "audio16k.wav" is the audio file you want to transcribe, and "tiny_en" is the model to use. Please adjust according to your specific needs.
 
 Enjoy using **Whisper Burn**!
 
+## Update as of 05/06/2024
 
-RUSTFLAGS="-A warnings" cargo run --release  --bin transcribe tiny audio16k.wav en transcription.txt
-RUSTFLAGS="-A warnings" cargo run --release --bin stream tiny en
+This repository has been updated to use **Burn version 13**, which brings significant performance upgrades and many bug fixes for **wgpu**. As a result, the repository has been modified to use wgpu by default, as it should work on most machines regardless of the operating system or GPU type.
+
+If you wish to swap out backends, you can easily do so by changing what is loaded in the `main.rs` file of the binary you are working with.
+
+## New Binaries
+
+We have added two new binaries, both aimed at (near) real-time transcription.
+
+### Streaming Mode
+
+To start the project in streaming mode, which takes in audio input from your microphone and transcribes it on the fly, run the following command:
+
+```
+cargo run --release --bin stream tiny en
+```
+
+### Real-Time Translation
+We are also working on a new binary for real-time translation. This feature is currently a work in progress, so stay tuned for updates!
+
+## Project File Structure
+
+The project has a specific file structure that must be followed for the application to run correctly.
+
+At the root of the project directory, there should be a `models` folder. This folder should contain various subfolders, each representing a different Whisper model. 
+
+The name of each subfolder should match the name you want to pass into the `cargo run xxx` command. 
+
+For example, your file structure may look like this:
+```
+.
+├── models
+│   ├── large-v2
+│   ├── medium
+│   ├── small
+│   └── tiny
+|       ├──tiny.cfg
+|       ├──tiny.mpk
+|       ├──tokenizer.json
+├── python
+│   ├── ...
+├── src
+│   ├── ...
+├── Cargo.lock
+├── Cargo.toml
+├── README.md
+```
+If your file structure looks like this then you can run
+```
+cargo run --release --bin stream tiny en
+```
+where 'tiny' is the same name as one of the subfolders in the models folder.
