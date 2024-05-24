@@ -4,7 +4,7 @@ use crate::helper::*;
 
 const N_FFT: usize = 400;
 const HOP_LENGTH: usize = 160;
-const N_MELS: usize = 80;
+// const N_MELS: usize = 128;
 const WINDOW_LENGTH: usize = N_FFT;
 
 /// Returns the maximum number of waveform samples that can be submitted to `prep_audio`
@@ -31,7 +31,7 @@ fn is_odd(x: usize) -> bool {
 /// n_samples_padded = if n_fft is even: n_samples + n_fft else: n_samples + n_fft - 1,
 /// n_fft = 400,
 /// hop_length = 160.
-pub fn prep_audio<B: Backend>(waveform: Tensor<B, 2>, sample_rate: f64) -> Tensor<B, 3> {
+pub fn prep_audio<B: Backend>(waveform: Tensor<B, 2>, sample_rate: f64, n_mels: usize) -> Tensor<B, 3> {
     let device = waveform.device();
 
     let window = hann_window_device(WINDOW_LENGTH, &device);
@@ -41,7 +41,7 @@ pub fn prep_audio<B: Backend>(waveform: Tensor<B, 2>, sample_rate: f64) -> Tenso
     let [n_batch, n_row, n_col] = magnitudes.dims();
     let magnitudes = magnitudes.slice([0..n_batch, 0..n_row, 0..(n_col - 1)]);
 
-    let mel_spec = get_mel_filters_device(sample_rate, N_FFT, N_MELS, false, &device)
+    let mel_spec = get_mel_filters_device(sample_rate, N_FFT, n_mels, false, &device)
         .unsqueeze()
         .matmul(magnitudes);
 

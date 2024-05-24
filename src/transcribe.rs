@@ -31,8 +31,9 @@ pub fn waveform_to_text<B: Backend>(
     let padding = 200; //ADJUST THIS IF CHINKS ARE REPEATING THEMSELVES ENDLESSLY
     let n_waveform_samples_per_window = max_waveform_samples(n_ctx_max_encoder - padding);
 
+    let n_mels = whisper.encoder_mel_size();
     let mel_iter =
-        waveform_to_mel_tensor(waveform, sample_rate, n_waveform_samples_per_window, device);
+        waveform_to_mel_tensor(waveform, sample_rate, n_waveform_samples_per_window, device, n_mels);
 
     let mut text = String::new();
     let mut tokens: Vec<usize> = Vec::new();
@@ -69,6 +70,7 @@ fn waveform_to_mel_tensor<B: Backend>(
     sample_rate: usize,
     window_length_samples: usize,
     device: B::Device,
+    n_mels: usize
 ) -> impl Iterator<Item = Tensor<B, 3>> {
     let chunk_overlap = sample_rate * 3;
     let n_samples_per_tensor = window_length_samples;
@@ -86,7 +88,7 @@ fn waveform_to_mel_tensor<B: Backend>(
             &device,
         );
 
-        let mels = prep_audio(waveform.unsqueeze(), sample_rate as f64);
+        let mels = prep_audio(waveform.unsqueeze(), sample_rate as f64, n_mels);
 
         mels
     })

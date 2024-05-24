@@ -24,7 +24,6 @@ fn numpy_to_tensor<B: Backend, const D: usize>(numpy_data: NpyData<f32>) -> Tens
         .collect::<Vec<_>>()
         .into();
 
-    //let tensor_device_ref = Tensor::from_primitive([0]).device();
     let tensor_device_ref = Default::default(); //WgpuDevice::BestAvailable;
 
     Tensor::from_floats(&v[D..], &tensor_device_ref).reshape(shape)
@@ -35,8 +34,6 @@ fn load_tensor<B: Backend, const D: usize>(
     path: &str,
 ) -> Result<Tensor<B, D>, Box<dyn Error>> {
     let tensor_path = format!("{}/{}.npy", path, name);
-
-    println!("{}", tensor_path);
 
     let mut buf = vec![];
     std::fs::File::open(tensor_path)?.read_to_end(&mut buf)?;
@@ -306,11 +303,8 @@ fn load_text_decoder<B: Backend>(
 }
 
 pub fn load_whisper<B: Backend>(path: &str) -> Result<(Whisper<B>, WhisperConfig), Box<dyn Error>> {
-    println!("HELLO");
     let (encoder, encoder_config) = load_audio_encoder(&format!("{}/{}", path, "encoder"))?;
-    println!("HERE");
     let (decoder, decoder_config) = load_text_decoder(&format!("{}/{}", path, "decoder"))?;
-    println!("NOT HERE");
     let whisper = Whisper {
         encoder: encoder,
         decoder: decoder,

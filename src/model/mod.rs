@@ -64,6 +64,9 @@ impl<B: Backend> Whisper<B> {
     pub fn encoder_ctx_size(&self) -> usize {
         self.encoder.ctx_size()
     }
+    pub fn encoder_mel_size(&self) -> usize {
+        self.encoder.n_mels
+    }
 
     pub fn decoder_ctx_size(&self) -> usize {
         self.decoder.ctx_size()
@@ -262,6 +265,10 @@ impl<B: Backend> AudioEncoder<B> {
 
     fn ctx_size(&self) -> usize {
         self.n_audio_ctx
+    }
+
+    fn mel_size(&self) -> usize {
+        self.n_mels
     }
 }
 
