@@ -4,6 +4,8 @@ use whisper_stream::transcribe::waveform_to_text;
 use whisper_stream::token::Language;
 
 use strum::IntoEnumIterator;
+use clap::Parser;
+use log::debug;
 
 use burn::{
     backend::wgpu::{Wgpu, WgpuDevice},
@@ -15,8 +17,24 @@ use burn::{
     tensor::backend::Backend,
 };
 use whisper_stream::token::Gpt2Tokenizer;
-use std::{env, fs, process};
+use std::process;
 use hound::{self, SampleFormat};
+
+#[derive(Parser)]
+#[command(name = "transcribe")]
+#[command(about = "Transcribe audio files using Whisper models")]
+struct Args {
+    /// Audio file to transcribe
+    audio_file: String,
+    
+    /// Model name to use for transcription
+    #[arg(short, long, default_value = "tiny_en")]
+    model: String,
+    
+    /// Language code (e.g., 'en', 'es', 'fr')
+    #[arg(short, long, default_value = "en")]
+    language: String,
+}
 
 fn load_audio_waveform<B: Backend>(filename: &str) -> hound::Result<(Vec<f32>, usize)> {
     let reader = hound::WavReader::open(filename)?;
@@ -45,34 +63,19 @@ fn load_audio_waveform<B: Backend>(filename: &str) -> hound::Result<(Vec<f32>, u
 }
 
 fn main() {
+    let args = Args::parse();
     let tensor_device = WgpuDevice::default();
 
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() < 5 {
-        eprintln!(
-            "Usage: {} <model name> <audio file> <lang> <transcription file>",
-            args[0]
-        );
-        process::exit(1);
-    }
-
-    let wav_file = &args[2];
-    let text_file = &args[4];
-
-    let lang_str = &args[3];
-    let lang = match Language::iter().find(|lang| lang.as_str() == lang_str) {
+    let lang = match Language::iter().find(|lang| lang.as_str() == &args.language) {
         Some(lang) => lang,
         None => {
-            eprintln!("Invalid language abbreviation: {}", lang_str);
+            eprintln!("Invalid language abbreviation: {}", &args.language);
             process::exit(1);
         }
     };
 
-    let model_name = &args[1];
-
-    println!("Loading waveform...");
-    let (waveform, sample_rate) = match load_audio_waveform::<Wgpu>(wav_file) {
+    debug!("Loading waveform...");
+    let (waveform, sample_rate) = match load_audio_waveform::<Wgpu>(&args.audio_file) {
         Ok((w, sr)) => (w, sr),
         Err(e) => {
             eprintln!("Failed to load audio file: {}", e);
@@ -80,7 +83,7 @@ fn main() {
         }
     };
 
-    let (bpe, _whisper_config, whisper) = load_model::<Wgpu>(&model_name, &tensor_device);
+    let (bpe, _whisper_config, whisper) = load_model::<Wgpu>(&args.model, &tensor_device);
 
     let (text, _tokens) = match waveform_to_text(&whisper, &bpe, lang, waveform, sample_rate, false) {
         Ok((text, tokens)) => (text, tokens),
@@ -90,12 +93,7 @@ fn main() {
         }
     };
 
-    fs::write(text_file, text).unwrap_or_else(|e| {
-        eprintln!("Error writing transcription file: {}", e);
-        process::exit(1);
-    });
-
-    println!("Transcription finished.");
+    println!("{}", text);
 }
 
 fn load_model<B: Backend>(
@@ -119,7 +117,7 @@ fn load_model<B: Backend>(
             }
         };
 
-    println!("Loading model...");
+    debug!("Loading model...");
     let whisper: Whisper<B> = {
         match NamedMpkFileRecorder::<FullPrecisionSettings>::new()
             .load(
