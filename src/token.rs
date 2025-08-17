@@ -1,8 +1,6 @@
 use serde::ser::StdError;
 use std::result;
 
-use tokenizers::{AddedToken, Tokenizer};
-
 pub type Result<T> = result::Result<T, Box<(dyn StdError + Send + Sync + 'static)>>;
 
 pub struct Gpt2Tokenizer {
@@ -11,7 +9,7 @@ pub struct Gpt2Tokenizer {
 
 impl Gpt2Tokenizer {
     pub fn new(model_name: &str) -> Result<Self> {
-        let mut tokenizer =
+        let tokenizer =
             tokenizers::Tokenizer::from_file(&format!("models/{}/tokenizer.json", &model_name))?;
 
         Ok(Self { tokenizer })
@@ -295,31 +293,31 @@ impl ToString for SpecialToken {
     }
 }
 
-fn construct_special_tokens() -> Vec<AddedToken> {
-    const SPEC1: [&str; 2] = ["<|endoftext|>", "<|startoftranscript|>"];
+// fn construct_special_tokens() -> Vec<AddedToken> {
+//     const SPEC1: [&str; 2] = ["<|endoftext|>", "<|startoftranscript|>"];
 
-    let lang_keys = LANGUAGES.iter().map(|lang| format!("<|{}|>", lang));
+//     let lang_keys = LANGUAGES.iter().map(|lang| format!("<|{}|>", lang));
 
-    const SPEC2: [&str; 6] = [
-        "<|translate|>",
-        "<|transcribe|>",
-        "<|startoflm|>",
-        "<|startofprev|>",
-        "<|nospeech|>",
-        "<|notimestamps|>",
-    ];
+//     const SPEC2: [&str; 6] = [
+//         "<|translate|>",
+//         "<|transcribe|>",
+//         "<|startoflm|>",
+//         "<|startofprev|>",
+//         "<|nospeech|>",
+//         "<|notimestamps|>",
+//     ];
 
-    let range_keys = (0..1501)
-        .into_iter()
-        .map(|i| i as f64 * 0.02)
-        .map(|f| format!("<|{:.2}|>", f));
+//     let range_keys = (0..1501)
+//         .into_iter()
+//         .map(|i| i as f64 * 0.02)
+//         .map(|f| format!("<|{:.2}|>", f));
 
-    SPEC1
-        .into_iter()
-        .map(String::from)
-        .chain(lang_keys.into_iter())
-        .chain(SPEC2.into_iter().map(String::from))
-        .chain(range_keys.into_iter())
-        .map(|tok| AddedToken::from(tok, true))
-        .collect()
-}
+//     SPEC1
+//         .into_iter()
+//         .map(String::from)
+//         .chain(lang_keys.into_iter())
+//         .chain(SPEC2.into_iter().map(String::from))
+//         .chain(range_keys.into_iter())
+//         .map(|tok| AddedToken::from(tok, true))
+//         .collect()
+// }

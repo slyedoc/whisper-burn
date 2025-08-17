@@ -55,15 +55,6 @@ pub fn prep_audio<B: Backend>(waveform: Tensor<B, 2>, sample_rate: f64, n_mels: 
     return log_spec;
 }
 
-fn get_mel_filters<B: Backend>(
-    sample_rate: f64,
-    n_fft: usize,
-    n_mels: usize,
-    htk: bool,
-) -> Tensor<B, 2> {
-    get_mel_filters_device(sample_rate, n_fft, n_mels, htk, &B::Device::default())
-}
-
 fn get_mel_filters_device<B: Backend>(
     sample_rate: f64,
     n_fft: usize,
@@ -142,9 +133,6 @@ fn get_mel_filters_device<B: Backend>(
     return weights;
 }
 
-fn fft_frequencies<B: Backend>(sample_rate: f64, n_fft: usize) -> Tensor<B, 1> {
-    fft_frequencies_device(sample_rate, n_fft, &B::Device::default())
-}
 
 fn fft_frequencies_device<B: Backend>(
     sample_rate: f64,
@@ -157,24 +145,6 @@ fn fft_frequencies_device<B: Backend>(
         .mul_scalar(sample_rate / n_fft as f64)
 }
 
-fn test_fft_frequencies<B: Backend>() {
-    let sr = 1000.0; // stating sample rate
-    let n_fft = 100; // stating the window size of fft
-    let fftfreqs = fft_frequencies::<B>(sr, n_fft);
-    println!("{:?}", fftfreqs);
-}
-
-fn test_mel_frequencies<B: Backend>(htk: bool) {
-    let n_mels = 128; // stating the number of Mel bands
-    let fmin = 0.0; // stating the lowest frequency
-    let fmax = 22050.0; // stating the highest frequency
-    let melfreqs = mel_frequencies::<B>(n_mels + 2, fmin, fmax, htk);
-    println!("{:?}", melfreqs);
-}
-
-fn mel_frequencies<B: Backend>(n_mels: usize, fmin: f64, fmax: f64, htk: bool) -> Tensor<B, 1> {
-    mel_frequencies_device(n_mels, fmin, fmax, htk, &B::Device::default())
-}
 
 fn mel_frequencies_device<B: Backend>(
     n_mels: usize,

@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 #[derive(Clone)]
 pub struct BeamNode<T: Clone> {
     pub seq: Vec<T>,
@@ -19,7 +17,7 @@ where
     G: Fn(&[T]) -> bool + Clone,
 {
     let mut beams = initial_beams;
-    for i in 0..max_depth {
+    for _i in 0..max_depth {
         if let Some(beam) = beams
             .iter()
             .max_by(|a, b| a.log_prob.partial_cmp(&b.log_prob).unwrap())
