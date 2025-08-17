@@ -1,1 +1,5 @@
  Hello, I am the whisper machine learning model. If you see this as text then I am working properly.
+
+ real    0m1.268s
+user    0m0.705s
+sys     0m0.522s

@@ -16,7 +16,7 @@ If you have a custom fine-tuned model you can easily convert it to burn's format
 # Download the tiny_en tokenizer
 wget https://huggingface.co/Gadersd/whisper-burn/resolve/main/tiny_en/tokenizer.json
 
-cd python
+
 wget https://openaipublic.azureedge.net/main/whisper/models/d3dd57d32accea0b295c96e26691aa14d8822fac7d9d27d5dc00b4ca2826dd03/tiny.en.pt
 python3 dump.py tiny.en.pt tiny_en
 mv tiny_en ../
@@ -28,10 +28,8 @@ However, if you want to convert a model from HuggingFace an extra conversion ste
 
 ```
 # Download the repo and convert it to .pt
-python3 python/convert_huggingface_model.py openai/whisper-tiny tiny.pt
-
-# Now it can be dumped
-python3 python/dump.py tiny.pt tiny
+uv run scripts/convert_huggingface_model.py openai/whisper-tiny models/tiny/tiny.pt
+uv run scripts/dump.py models/tiny/tiny.pt models/tiny
 cargo run --release --bin convert tiny
 
 # Don't forget the tokenizer

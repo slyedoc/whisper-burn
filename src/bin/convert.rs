@@ -9,25 +9,45 @@ use burn::{
         backend::Backend
     ,
 };
+use clap::Parser;
+
 
 fn save_whisper<B: Backend>(whisper: Whisper<B>, name: &str) -> Result<(), record::RecorderError> {
     DefaultRecorder::new().record(whisper.into_record(), name.into())
 }
 
-use std::env;
+
+
+#[derive(Parser)]
+#[command(name = "transcribe")]
+#[command(about = "Transcribe audio files using Whisper models")]
+struct Args {
+    
+    /// Model name to use for transcription
+    #[arg(short, long, default_value = "tiny_en")]
+    model: String,
+
+    #[arg(short, long, default_value = "models")]
+    model_dir: String,
+}
 
 fn main() {
-    let model_name = match env::args().nth(1) {
-        Some(name) => name,
-        None => {
-            eprintln!("Model dump folder not provided");
-            return;
-        }
-    };
+    println!("Whisper Model Converter");
 
-    let device = WgpuDevice::default();
+    let args = Args::parse();
 
-    let (whisper, whisper_config): (Whisper<Wgpu>, WhisperConfig) = match load_whisper(&model_name)
+    let model_name = args.model.as_str();
+    let model_dir = args.model_dir.as_str();
+
+    let model_path = format!("{}/{}", model_dir, model_name);    
+
+    let model_file = format!("{}/{}/model.mpk", model_dir, model_name);    
+    //dbg!(load_path);
+
+
+    let _device = WgpuDevice::default();
+
+    let (whisper, whisper_config): (Whisper<Wgpu>, WhisperConfig) = match load_whisper(model_path.as_str())
     {
         Ok(model) => model,
         Err(e) => {
@@ -36,14 +56,15 @@ fn main() {
         }
     };
 
-    println!("Saving model...");
-    if let Err(e) = save_whisper(whisper, &model_name) {
+    println!("Saving model: {}", model_file);
+    if let Err(e) = save_whisper(whisper, &model_file) {
         eprintln!("Error saving model {}: {}", model_name, e);
         return;
     }
-
-    println!("Saving config...");
-    if let Err(e) = whisper_config.save(&format!("{}.cfg", model_name)) {
+        
+    let config_path = format!("{}/config.cfg", model_path);
+    println!("Saving config: {}", config_path);
+    if let Err(e) = whisper_config.save(&config_path) {
         eprintln!("Error saving config for {}: {}", model_name, e);
         return;
     }

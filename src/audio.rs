@@ -83,7 +83,7 @@ fn get_mel_filters_device<B: Backend>(
         .clone()
         .unsqueeze::<2>()
         .transpose()
-        .repeat(1, n_ffefreqs)
+        .repeat(&[1, n_ffefreqs])
         - fftfreqs.unsqueeze();
 
     /*for i in range(n_mels):
@@ -324,7 +324,7 @@ pub fn stfft<B: Backend>(
         .mul_scalar(coe)
         .unsqueeze::<2>()
         .transpose()
-        .repeat(1, n_fft)
+        .repeat(&[1, n_fft])
         * Tensor::arange(0..n_fft as i64, &device)
             .float()
             .unsqueeze::<2>();

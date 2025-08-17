@@ -6,10 +6,9 @@ use burn::{
     
     module::Module,
     tensor::{
-        self,
         activation::log_softmax,
         backend::Backend,
-        Data, ElementConversion, Tensor,
+        ElementConversion, Tensor, TensorData,
     },
 };
 use std::{f32, iter, ops::Div};
@@ -80,8 +79,8 @@ fn waveform_to_mel_tensor<B: Backend>(
 
         let slice = &waveform[start..end];
 
-        let waveform = Tensor::from_floats(
-            tensor::Data::new(slice.to_vec(), [slice.len()].into()),
+        let waveform: Tensor<B, 1> = Tensor::from_floats(
+            slice.to_vec().as_slice(),
             &device,
         );
 
@@ -167,8 +166,8 @@ fn mels_to_text<B: Backend>(
         .collect();
     //special_tokens_maskout[end_token] = 1.0;
 
-    let special_tokens_maskout = Tensor::from_data(
-        Data::new(special_tokens_maskout, [vocab_size].into()).convert(),
+    let special_tokens_maskout: Tensor<B, 1> = Tensor::from_data(
+        TensorData::new(special_tokens_maskout, [vocab_size]),
         &device,
     );
 
@@ -187,15 +186,12 @@ fn mels_to_text<B: Backend>(
             .collect();
 
         let token_tensor = Tensor::from_ints(
-            Data::from_usize(Data::new(
-                flattened_tokens,
-                [beams.len(), max_seq_len].into(),
-            )),
+            TensorData::new(flattened_tokens.into_iter().map(|x| x as i32).collect(), [beams.len(), max_seq_len]),
             &device,
         );
 
         let logits =
-            whisper.forward_decoder(token_tensor, encoder_output.clone().repeat(0, beams.len()));
+            whisper.forward_decoder(token_tensor, encoder_output.clone().repeat(&[beams.len()]));
         let logits = if max_seq_len > 5 {
             logits
         } else {
@@ -213,7 +209,7 @@ fn mels_to_text<B: Backend>(
                 .slice([batch..batch + 1, token_index..token_index + 1])
                 .flatten::<1>(0, 2)
                 .into_data()
-                .value
+                .to_vec::<f32>().unwrap()
         });
 
         let continuations = beam_log_probs

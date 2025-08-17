@@ -5,7 +5,6 @@ use whisper_stream::token::Language;
 
 use strum::IntoEnumIterator;
 use clap::Parser;
-use log::debug;
 
 use burn::{
     backend::wgpu::{Wgpu, WgpuDevice},
@@ -30,6 +29,9 @@ struct Args {
     /// Model name to use for transcription
     #[arg(short, long, default_value = "tiny_en")]
     model: String,
+
+    #[arg(long, default_value = "models")]
+    model_folder: String,
     
     /// Language code (e.g., 'en', 'es', 'fr')
     #[arg(short, long, default_value = "en")]
@@ -65,6 +67,7 @@ fn load_audio_waveform<B: Backend>(filename: &str) -> hound::Result<(Vec<f32>, u
 fn main() {
     let args = Args::parse();
     let tensor_device = WgpuDevice::default();
+    
 
     let lang = match Language::iter().find(|lang| lang.as_str() == &args.language) {
         Some(lang) => lang,
@@ -73,8 +76,7 @@ fn main() {
             process::exit(1);
         }
     };
-
-    debug!("Loading waveform...");
+    
     let (waveform, sample_rate) = match load_audio_waveform::<Wgpu>(&args.audio_file) {
         Ok((w, sr)) => (w, sr),
         Err(e) => {
@@ -83,7 +85,7 @@ fn main() {
         }
     };
 
-    let (bpe, _whisper_config, whisper) = load_model::<Wgpu>(&args.model, &tensor_device);
+    let (bpe, _whisper_config, whisper) = load_model::<Wgpu>(&args.model, &args.model_folder, &tensor_device);
 
     let (text, _tokens) = match waveform_to_text(&whisper, &bpe, lang, waveform, sample_rate, false) {
         Ok((text, tokens)) => (text, tokens),
@@ -98,6 +100,7 @@ fn main() {
 
 fn load_model<B: Backend>(
     model_name: &str,
+    model_dir: &str,
     tensor_device_ref: &B::Device,
 ) -> (Gpt2Tokenizer, WhisperConfig, Whisper<B>) {
     let bpe = match Gpt2Tokenizer::new(model_name) {
@@ -109,7 +112,7 @@ fn load_model<B: Backend>(
     };
 
     let whisper_config =
-        match WhisperConfig::load(&format!("models/{}/{}.cfg", model_name, model_name)) {
+        match WhisperConfig::load(&format!("{}/{}/config.cfg", model_dir, model_name)) {
             Ok(config) => config,
             Err(e) => {
                 eprintln!("Failed to load whisper config: {}", e);
@@ -117,11 +120,17 @@ fn load_model<B: Backend>(
             }
         };
 
-    debug!("Loading model...");
+    let model_path = format!("{}/{}/model.mpk", model_dir, model_name);
+    println!("Loading model: {}", model_path);
+
+    for _ in 0..3 {
+        println!("...");
+    }
+
     let whisper: Whisper<B> = {
         match NamedMpkFileRecorder::<FullPrecisionSettings>::new()
             .load(
-                format!("models/{}/{}", model_name, model_name).into(),
+                model_path.into(),
                 tensor_device_ref,
             )
             .map(|record| whisper_config.init(tensor_device_ref).load_record(record))

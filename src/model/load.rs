@@ -5,20 +5,19 @@ use burn::{
         conv::{Conv1d, Conv1dConfig, Conv1dRecord},
         PaddingConfig1d,
     },
-    tensor::{backend::Backend, Tensor},
+    tensor::{backend::Backend, cast::ToElement, Tensor},
 };
 
 use super::*;
 
 use burn::tensor::Shape;
 use npy::{self, NpyData};
-use num_traits::cast::ToPrimitive;
 use std::error::Error;
 use std::io::Read;
 
 fn numpy_to_tensor<B: Backend, const D: usize>(numpy_data: NpyData<f32>) -> Tensor<B, D> {
     let v = numpy_data.to_vec();
-    let shape: Shape<D> = v[0..D]
+    let shape: Shape = v[0..D]
         .into_iter()
         .map(|&v| v as usize)
         .collect::<Vec<_>>()
@@ -26,7 +25,10 @@ fn numpy_to_tensor<B: Backend, const D: usize>(numpy_data: NpyData<f32>) -> Tens
 
     let tensor_device_ref = Default::default(); //WgpuDevice::BestAvailable;
 
-    Tensor::from_floats(&v[D..], &tensor_device_ref).reshape(shape)
+    // Create 1D tensor first, then reshape to target dimensions
+    let data_slice = &v[D..];
+    let tensor_1d = Tensor::<B, 1>::from_floats(data_slice, &tensor_device_ref);
+    tensor_1d.reshape(shape)
 }
 
 fn load_tensor<B: Backend, const D: usize>(
@@ -46,11 +48,11 @@ fn load_tensor<B: Backend, const D: usize>(
 }
 
 fn load_f32<B: Backend>(name: &str, path: &str) -> Result<f32, Box<dyn Error>> {
-    load_tensor::<B, 1>(name, path).map(|t| t.into_scalar().to_f32().unwrap())
+    load_tensor::<B, 1>(name, path).map(|t| t.into_scalar().to_f32())
 }
 
 fn load_usize<B: Backend>(name: &str, path: &str) -> Result<usize, Box<dyn Error>> {
-    load_tensor::<B, 1>(name, path).map(|t| t.into_scalar().to_usize().unwrap())
+    load_tensor::<B, 1>(name, path).map(|t| t.into_scalar().to_usize())
 }
 
 fn load_linear<B: Backend>(path: &str) -> Result<nn::Linear<B>, Box<dyn Error>> {
