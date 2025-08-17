@@ -1,4 +1,6 @@
 
+#![recursion_limit = "512"]
+
 use whisper_stream::model::*;
 use whisper_stream::transcribe::waveform_to_text;
 use whisper_stream::token::Language;
