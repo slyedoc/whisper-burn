@@ -3,12 +3,19 @@ name = "whisper_stream"
 version = "0.4.0"
 edition = "2021"
 
-# This work is based off of https://github.com/Gadersd/whisper-burn/tree/main
-# it has been updated to use burn 13 and also has two new binaries 'stream' and 'translate'
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["wgpu"]
+# Backend features
+ndarray = ["burn/ndarray"]
+wgpu = ["burn/wgpu"]
+cuda = ["burn/cuda"]
+tch-cpu = ["burn/tch"]
+tch-gpu = ["burn/tch"]
+# Optimization features
+fusion = ["burn/fusion"]
 
 [dependencies]
-burn = { version="0.17", features=["wgpu"] }
+burn = { version="0.18" }
 serde = { version = "1.0", features = ["std", "derive"]}
 num-traits = "0.2"
 hound = "3.5.0"

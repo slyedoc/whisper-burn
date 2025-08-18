@@ -26,14 +26,14 @@ echo "Step 2 completed in ${elapsed}s"
 
 echo "=== Step 3: Converting to Burn format ==="
 start_time=$(date +%s.%3N)
-cargo run --release --bin convert -- --model ${MODEL_NAME}
+cargo run --release -- convert --model ${MODEL_NAME}
 end_time=$(date +%s.%3N)
 elapsed=$(echo "$end_time - $start_time" | bc)
 echo "Step 3 completed in ${elapsed}s"
 
 echo "=== Step 4: Testing transcription ==="
 start_time=$(date +%s.%3N)
-cargo run --release --bin transcribe -- --model ${MODEL_NAME} audio16k.wav
+cargo run --release -- transcribe --model ${MODEL_NAME} audio16k.wav
 end_time=$(date +%s.%3N)
 elapsed=$(echo "$end_time - $start_time" | bc)
 echo "Step 4 completed in ${elapsed}s"

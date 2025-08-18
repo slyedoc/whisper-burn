@@ -9,7 +9,6 @@ use strum::IntoEnumIterator;
 use clap::Parser;
 
 use burn::{
-    backend::wgpu::{Wgpu, WgpuDevice},
     config::Config,
     module::Module,
     record::{
@@ -66,11 +65,7 @@ fn load_audio_waveform<B: Backend>(filename: &str) -> hound::Result<(Vec<f32>, u
     return Ok((floats, sample_rate));
 }
 
-fn main() {
-    let args = Args::parse();
-    let tensor_device = WgpuDevice::default();
-    
-
+fn launch<B: Backend>(device: B::Device, args: Args) {
     let lang = match Language::iter().find(|lang| lang.as_str() == &args.language) {
         Some(lang) => lang,
         None => {
@@ -79,7 +74,7 @@ fn main() {
         }
     };
     
-    let (waveform, sample_rate) = match load_audio_waveform::<Wgpu>(&args.audio_file) {
+    let (waveform, sample_rate) = match load_audio_waveform::<B>(&args.audio_file) {
         Ok((w, sr)) => (w, sr),
         Err(e) => {
             eprintln!("Failed to load audio file: {}", e);
@@ -87,7 +82,7 @@ fn main() {
         }
     };
 
-    let (bpe, _whisper_config, whisper) = load_model::<Wgpu>(&args.model, &args.model_folder, &tensor_device);
+    let (bpe, _whisper_config, whisper) = load_model::<B>(&args.model, &args.model_folder, &device);
 
     let (text, _tokens) = match waveform_to_text(&whisper, &bpe, lang, waveform, sample_rate, false) {
         Ok((text, tokens)) => (text, tokens),
@@ -98,6 +93,77 @@ fn main() {
     };
 
     println!("{}", text);
+}
+
+#[cfg(feature = "ndarray")]
+mod ndarray {
+    use burn::backend::ndarray::{NdArray, NdArrayDevice};
+    use crate::{launch, Args};
+
+    pub fn run(args: Args) {
+        launch::<NdArray>(NdArrayDevice::default(), args);
+    }
+}
+
+#[cfg(feature = "wgpu")]
+mod wgpu {
+    use burn::backend::wgpu::{Wgpu, WgpuDevice};
+    use crate::{launch, Args};
+
+    pub fn run(args: Args) {
+        launch::<Wgpu>(WgpuDevice::default(), args);
+    }
+}
+
+
+#[cfg(feature = "cuda")]
+mod cuda {
+    use burn::backend::cuda::{Cuda, CudaDevice};
+    use crate::{launch, Args};
+
+    pub fn run(args: Args) {
+        launch::<Cuda>(CudaDevice::default(), args);
+    }
+}
+
+#[cfg(feature = "tch-gpu")]
+mod tch_gpu {
+    use burn::backend::libtorch::{LibTorch, LibTorchDevice};
+    use crate::{launch, Args};
+
+    pub fn run(args: Args) {
+        #[cfg(not(target_os = "macos"))]
+        let device = LibTorchDevice::Cuda(0);
+        #[cfg(target_os = "macos")]
+        let device = LibTorchDevice::Mps;
+
+        launch::<LibTorch>(device, args);
+    }
+}
+
+#[cfg(feature = "tch-cpu")]
+mod tch_cpu {
+    use burn::backend::libtorch::{LibTorch, LibTorchDevice};
+    use crate::{launch, Args};
+
+    pub fn run(args: Args) {
+        launch::<LibTorch>(LibTorchDevice::Cpu, args);
+    }
+}
+
+fn main() {
+    let args = Args::parse();
+
+    #[cfg(feature = "ndarray")]
+    ndarray::run(args);
+    #[cfg(feature = "wgpu")]
+    wgpu::run(args);
+    #[cfg(feature = "cuda")]
+    cuda::run(args);
+    #[cfg(feature = "tch-gpu")]
+    tch_gpu::run(args);
+    #[cfg(feature = "tch-cpu")]
+    tch_cpu::run(args);
 }
 
 fn load_model<B: Backend>(
@@ -114,7 +180,7 @@ fn load_model<B: Backend>(
     };
 
     let whisper_config =
-        match WhisperConfig::load(&format!("{}/{}/config.cfg", model_dir, model_name)) {
+        match WhisperConfig::load(&format!("{}/{}/config.json", model_dir, model_name)) {
             Ok(config) => config,
             Err(e) => {
                 eprintln!("Failed to load whisper config: {}", e);

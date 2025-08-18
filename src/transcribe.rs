@@ -2,8 +2,8 @@ use crate::audio::{max_waveform_samples, prep_audio};
 use crate::beam;
 use crate::model::*;
 use crate::token::{self, *};
+
 use burn::{
-    
     module::Module,
     tensor::{
         activation::log_softmax,
@@ -244,7 +244,7 @@ fn mels_to_text<B: Backend>(
     };
 
     let beam_size = 5;
-    let max_depth = 30;
+    let max_depth = 30;  // Increased to allow longer sequences
     let tokens: Vec<_> = beam::beam_search(
         vec![initial_tokens],
         beamsearch_next,
@@ -255,6 +255,13 @@ fn mels_to_text<B: Backend>(
     .into_iter()
     .map(|btok| btok.token)
     .collect();
+
+    // println!("Generated tokens: {:?}", tokens);
+    // for (i, &token) in tokens.iter().enumerate() {
+    //     if let Ok(text_part) = bpe.decode(&[token], false) {
+    //         println!("Token {}: {} -> '{}'", i, token, text_part);
+    //     }
+    // }
 
     let text = bpe.decode(&tokens[..], false)?;
 

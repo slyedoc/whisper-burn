@@ -8,12 +8,8 @@ pub struct Gpt2Tokenizer {
 }
 
 impl Gpt2Tokenizer {
-    pub fn new(model_name: &str) -> Result<Self> {
-        let file = &format!("models/{}/tokenizer.json", &model_name);
-        println!("Loading tokenizer from: {}", file);
-        let tokenizer = tokenizers::Tokenizer::from_file(&file)?;
-
-        Ok(Self { tokenizer })
+    pub fn new(file: &str) -> Result<Self> {
+        Ok(Self { tokenizer: tokenizers::Tokenizer::from_file(&file)? })
     }
 
     pub fn encode(&self, text: &str) -> Vec<usize> {

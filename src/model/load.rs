@@ -298,13 +298,13 @@ fn load_text_decoder<B: Backend>(
         n_text_ctx: n_text_ctx,
         n_text_state: n_text_state,
         n_text_head: n_text_head,
-        n_text_layer: n_layer,
+        n_text_layer: n_layer, 
     };
 
     Ok((text_decoder, config))
 }
 
-pub fn load_whisper<B: Backend>(path: &str) -> Result<(Whisper<B>, WhisperConfig), Box<dyn Error>> {
+pub fn load_extracted<B: Backend>(path: &str) -> Result<(Whisper<B>, WhisperConfig), Box<dyn Error>> {
     let (encoder, encoder_config) = load_audio_encoder(&format!("{}/{}", path, "encoder"))?;
     let (decoder, decoder_config) = load_text_decoder(&format!("{}/{}", path, "decoder"))?;
     let whisper = Whisper {

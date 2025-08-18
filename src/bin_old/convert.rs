@@ -44,6 +44,7 @@ fn main() {
     let model_path = format!("{}/{}", model_dir, model_name);    
 
     let model_file = format!("{}/{}/model.mpk", model_dir, model_name);    
+    let config_file = format!("{}/{}/config.json", model_dir, model_name);
     //dbg!(load_path);
 
 
@@ -64,10 +65,10 @@ fn main() {
         return;
     }
         
-    let config_path = format!("{}/config.cfg", model_path);
-    println!("Saving config: {}", config_path);
-    if let Err(e) = whisper_config.save(&config_path) {
-        eprintln!("Error saving config for {}: {}", model_name, e);
+    
+    println!("Saving config: {}", config_file);
+    if let Err(e) = whisper_config.save(&config_file) {
+        eprintln!("Error saving config for {}: {}", config_file, e);
         return;
     }
 
